@@ -1,20 +1,15 @@
-# Retrieval
+# retrieval
 chunk_size: 800
 chunk_overlap: 150
 top_k: 4
 
-# Index
+# index
 index_dir: faiss_index
 
-# Safety
+# safety
 min_context_chars: 200
 refusal_text: "Not enough info in the docs."
 
-# HF generation (conversational only)
-hf_mode: conversational
-hf_models:
-  - HuggingFaceH4/zephyr-7b-beta
-  - meta-llama/Meta-Llama-3.1-8B-Instruct
-  - mistralai/Mistral-7B-Instruct-v0.3
-max_new_tokens: 512
+# generation
+ollama_model: llama3
 temperature: 0.0
