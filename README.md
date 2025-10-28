@@ -9,6 +9,10 @@ A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers que
 * **Ops:** Config-driven (`config.yaml`), Docker Compose, simple eval harness
 
 ---
+## Demo Video
+![screen-capture (1)](https://github.com/user-attachments/assets/e71e267f-084c-40a6-bd41-fbe71ee69b15)
+
+
 
 ## ✨ Features
 
