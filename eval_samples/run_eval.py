@@ -1,20 +1,77 @@
-import json, time, re
+import json
+import sys
+import time
 from pathlib import Path
+from statistics import mean
+
+# Answers can legitimately contain non-ASCII characters (the sample docs use
+# one), and Windows terminals default to a codepage that can't print them.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from chain import load_chain
 
-ask = load_chain()
-items = [json.loads(s) for s in Path("eval/qa.jsonl").read_text().splitlines()]
+EVAL_FILE = Path(__file__).resolve().parent / "qa.jsonl"
+REPORT_FILE = Path(__file__).resolve().parent / "report.md"
 
-ok = 0
-for it in items:
-    t0 = time.time()
-    out = ask(it["q"])
-    ans = out["answer"].lower()
-    if it["ref"] == "REFUSE":
-        passed = "not enough info" in ans
-    else:
-        regex = it["ref"].lower()
-        passed = bool(re.search(regex, ans))
-    ok += int(passed)
-    print(f"Q: {it['q']}\nA: {out['answer']}\nPASS: {passed} | Lat: {out['latency']}s | Src: {out['sources']}\n---")
-print(f"Score: {ok}/{len(items)}")
+
+def check(item, answer: str) -> bool:
+    ans = answer.lower()
+    if item["type"] == "refuse":
+        return "not enough info" in ans
+    if item["type"] == "contains":
+        return item["text"].lower() in ans
+    if item["type"] == "keywords":
+        return any(kw.lower() in ans for kw in item["any_of"])
+    raise ValueError(f"Unknown eval type: {item['type']}")
+
+
+def run():
+    ask = load_chain()
+    items = [json.loads(line) for line in EVAL_FILE.read_text().splitlines() if line.strip()]
+
+    rows = []
+    for item in items:
+        out = ask(item["q"])
+        passed = check(item, out["answer"])
+        rows.append(
+            {
+                "question": item["q"],
+                "answer": out["answer"],
+                "sources": out["sources"],
+                "latency": out["latency"],
+                "passed": passed,
+            }
+        )
+        status = "PASS" if passed else "FAIL"
+        print(f"[{status}] {item['q']}\n  -> {out['answer']}\n  ({out['latency']}s, sources: {out['sources']})\n")
+
+    passed_count = sum(r["passed"] for r in rows)
+    latencies = [r["latency"] for r in rows]
+    print(f"Score: {passed_count}/{len(rows)} | avg latency: {mean(latencies):.3f}s | max latency: {max(latencies):.3f}s")
+
+    write_report(rows, passed_count)
+    return rows
+
+
+def write_report(rows, passed_count):
+    lines = [
+        "# Eval report",
+        "",
+        f"**Score:** {passed_count}/{len(rows)}  ",
+        f"**Avg latency:** {mean(r['latency'] for r in rows):.3f}s  ",
+        f"**Max latency:** {max(r['latency'] for r in rows):.3f}s",
+        "",
+        "| # | Question | Result | Latency | Sources |",
+        "|---|----------|--------|---------|---------|",
+    ]
+    for i, r in enumerate(rows, 1):
+        status = "✅ PASS" if r["passed"] else "❌ FAIL"
+        sources = ", ".join(r["sources"]) or "—"
+        lines.append(f"| {i} | {r['question']} | {status} | {r['latency']}s | {sources} |")
+    REPORT_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"\nWrote {REPORT_FILE}")
+
+
+if __name__ == "__main__":
+    run()

@@ -65,10 +65,11 @@ rag-ad-briefs/
 │  ├─ brand_guidelines.md
 │  ├─ campaign_diwali_2024.md
 ├─ faiss_index/           # (generated) vector index
-├─ eval/
-│  ├─ qa.jsonl            # Tiny golden set (optional)
-│  └─ run_eval.py         # Simple evaluation runner (optional)
-├─ requirements.txt (if you keep one)
+├─ eval_samples/
+│  ├─ qa.jsonl            # Tiny golden set
+│  └─ run_eval.py         # Evaluation runner -- writes eval_samples/report.md
+├─ requirements.txt
+├─ render.yaml            # Render Blueprint (Streamlit demo)
 └─ README.md
 ```
 
@@ -185,23 +186,30 @@ curl -s -X POST http://localhost:8000/ask \
 
 ---
 
-## 🧪 (Optional) Evaluation Harness
+## 🧪 Evaluation Harness
 
-`eval/qa.jsonl`
-
-```json
-{"q":"List 3 words our brand voice avoids.","ref":"best|No.1|guaranteed"}
-{"q":"Give the mandatory discount disclaimer.","ref":"Limited-time offer; terms apply"}
-{"q":"What was our 2023 revenue?","ref":"REFUSE"}
-```
-
-Run:
+`eval_samples/qa.jsonl` holds a small golden set -- each item is either a
+`refuse` case (the doc genuinely doesn't have the answer), a `contains` case
+(the answer must include an exact phrase from the docs, like a disclaimer),
+or a `keywords` case (the answer must include at least one of a few valid
+phrasings). Run it against the live chain:
 
 ```bash
-python eval/run_eval.py
+python eval_samples/run_eval.py
 ```
 
-Outputs pass/fail per item + latency, and a small overall score.
+It prints a pass/fail + latency per question and writes
+`eval_samples/report.md`. Latest run (Groq, `llama-3.3-70b-versatile`):
+
+**Score:** 5/5 &nbsp;|&nbsp; **Avg latency:** 0.36s &nbsp;|&nbsp; **Max latency:** 0.54s
+
+| # | Question | Result |
+|---|----------|--------|
+| 1 | List 3 words our brand voice avoids. | ✅ PASS |
+| 2 | Give a compliant disclaimer we must include for discounts. | ✅ PASS |
+| 3 | What was our 2023 revenue? | ✅ PASS (correctly refused) |
+| 4 | Write one playful headline for Diwali 2024. | ✅ PASS |
+| 5 | Are health claims allowed in our marketing? | ✅ PASS (correctly refused -- not in docs) |
 
 ---
 
