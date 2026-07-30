@@ -1,5 +1,5 @@
 # chain.py
-import time, yaml
+import os, time, yaml
 from pathlib import Path
 
 # LangChain imports with 0.2-compatible fallbacks
@@ -14,7 +14,6 @@ except ImportError:
 
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_ollama import ChatOllama
 
 from utils.logger import pack_result
 
@@ -55,11 +54,23 @@ def load_chain():
         allow_dangerous_deserialization=True
     )
 
-    # 2) Initialize Ollama chat (ensure ollama serve is running and model pulled)
-    model_name = cfg.get("ollama_model", "llama3")
-    llm = ChatOllama(model=model_name, temperature=cfg.get("temperature", 0.0))
+    # 2) Initialize the LLM. LLM_PROVIDER env var overrides config.yaml so a
+    # deploy host (e.g. Render, set LLM_PROVIDER=groq) doesn't require
+    # editing the file -- "groq" needs no locally-running server, "ollama"
+    # is for local dev where `ollama serve` is actually running.
+    provider = os.getenv("LLM_PROVIDER", cfg.get("provider", "ollama"))
+    temperature = cfg.get("temperature", 0.0)
 
-    print(f"[chain] Using Ollama model: {model_name}")
+    if provider == "groq":
+        from langchain_groq import ChatGroq
+        model_name = cfg.get("groq_model", "llama-3.3-70b-versatile")
+        llm = ChatGroq(model=model_name, temperature=temperature)
+    else:
+        from langchain_ollama import ChatOllama
+        model_name = cfg.get("ollama_model", "llama3")
+        llm = ChatOllama(model=model_name, temperature=temperature)
+
+    print(f"[chain] Using {provider} model: {model_name}")
 
     def ask(question: str):
         t0 = time.time()

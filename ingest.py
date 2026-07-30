@@ -13,9 +13,6 @@ except ImportError:
 
 from langchain_community.vectorstores import FAISS
 
-# Prefer OpenAI if quota is available; else fall back to local HF
-USE_OPENAI_DEFAULT = True
-
 def get_cfg():
     return yaml.safe_load(Path("config.yaml").read_text())
 
@@ -40,10 +37,6 @@ def build_text_chunks(docs_dir="docs") -> List[dict]:
     print(f"[ingest] Total chunks: {len(chunks)}")
     return chunks
 
-def _openai_embeddings(model_name: str):
-    from langchain_openai import OpenAIEmbeddings
-    return OpenAIEmbeddings(model=model_name)
-
 def _hf_embeddings(model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
     from langchain_huggingface import HuggingFaceEmbeddings
     return HuggingFaceEmbeddings(model_name=model_name)
@@ -58,21 +51,11 @@ def build_index():
     texts = [c["page_content"] for c in chunks]
     metas = [c["metadata"] for c in chunks]
 
-    embeddings = None
-    if USE_OPENAI_DEFAULT:
-        try:
-            model = cfg.get("embedding_model", "text-embedding-3-small")
-            print(f"[ingest] Trying OpenAI embeddings: {model}")
-            embeddings = _openai_embeddings(model)
-            # warm-up small call to fail fast if quota is exhausted
-            _ = embeddings.embed_documents(texts[:2])
-        except Exception as e:
-            print(f"[ingest] OpenAI embeddings unavailable ({e.__class__.__name__}). Falling back to HF.")
-            embeddings = None
-
-    if embeddings is None:
-        print("[ingest] Using local HF embeddings: sentence-transformers/all-MiniLM-L6-v2")
-        embeddings = _hf_embeddings("sentence-transformers/all-MiniLM-L6-v2")
+    # Must match the embedding model chain.py loads at query time -- using a
+    # different one here would silently change the index's vector dimension
+    # and break (or corrupt) retrieval.
+    print("[ingest] Using local HF embeddings: sentence-transformers/all-MiniLM-L6-v2")
+    embeddings = _hf_embeddings("sentence-transformers/all-MiniLM-L6-v2")
 
     print("[ingest] Building FAISS index…")
     vs = FAISS.from_texts(texts, embeddings, metadatas=metas)

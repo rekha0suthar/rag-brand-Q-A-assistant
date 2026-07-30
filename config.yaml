@@ -11,5 +11,10 @@ min_context_chars: 200
 refusal_text: "Not enough info in the docs."
 
 # generation
+# provider: "ollama" for local dev (needs `ollama serve` running), or
+# "groq" for deployed instances (needs GROQ_API_KEY, no local server).
+# Overridable via the LLM_PROVIDER env var without editing this file.
+provider: ollama
 ollama_model: llama3
+groq_model: llama-3.3-70b-versatile
 temperature: 0.0
