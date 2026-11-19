@@ -26,8 +26,15 @@ def check(item, answer: str, sources=None) -> bool:
     # semantically identical to the golden set's ASCII.
     ans = answer.lower()
     unicode_to_ascii = {
-        "‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-",
-        "‘": "'", "’": "'", "“": '"', "”": '"',
+        "‐": "-",
+        "‑": "-",
+        "‒": "-",
+        "–": "-",
+        "—": "-",
+        "‘": "'",
+        "’": "'",
+        "“": '"',
+        "”": '"',
     }
     for uni, ascii_ in unicode_to_ascii.items():
         ans = ans.replace(uni, ascii_)
