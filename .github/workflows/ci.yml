@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # chain.py imports langchain-huggingface at module level, which needs
+      # sentence-transformers (and therefore torch), so install the full
+      # pinned set -- the CPU wheel index keeps torch small and GPU-free.
+      # No API keys needed: tests never call an LLM or load the FAISS index.
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt \
+            --extra-index-url https://download.pytorch.org/whl/cpu
+
+      - name: Run tests
+        run: pytest -q
