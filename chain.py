@@ -38,6 +38,15 @@ QUESTION: {question}
 ANSWER:"""
 )
 
+def filter_by_score(results, threshold):
+    """
+    Keep only (doc, score) pairs whose score passes the threshold.
+
+    FAISS (as built by ingest.py via FAISS.from_texts) returns L2 DISTANCE,
+    so LOWER is better: a doc passes when score <= threshold.
+    """
+    return [(d, s) for d, s in results if s <= threshold]
+
 def _get_cfg():
     cfg_path = Path("config.yaml")
     if not cfg_path.exists():
@@ -79,11 +88,17 @@ def load_chain():
 
     def ask(question: str):
         t0 = time.time()
-        docs = vs.similarity_search(question, k=cfg.get("top_k", 4))
+        results = vs.similarity_search_with_score(question, k=cfg.get("top_k", 4))
+        # Deterministic refusal gate: drop chunks whose L2 distance is above
+        # the calibrated threshold. If nothing is close enough, refuse WITHOUT
+        # calling the LLM and WITHOUT citing sources -- a refusal that cites
+        # documents it didn't use would be misleading.
+        kept = filter_by_score(results, cfg.get("score_threshold", 1.4))
+        if not kept:
+            return pack_result(cfg.get("refusal_text", "Not enough info in the docs."), [], time.time() - t0)
+        docs = [d for d, _ in kept]
         ctx = "\n\n".join(d.page_content for d in docs)
         sources = [d.metadata.get("source", "unknown") for d in docs]
-        if len(ctx) < cfg.get("min_context_chars", 200):
-            return pack_result(cfg.get("refusal_text", "Not enough info in the docs."), sources, time.time() - t0)
         prompt_text = PROMPT.format(
             context=ctx,
             question=question,

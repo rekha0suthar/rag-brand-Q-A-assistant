@@ -7,7 +7,11 @@ top_k: 4
 index_dir: faiss_index
 
 # safety
-min_context_chars: 200
+# FAISS similarity scores here are L2 distances (lower = closer). Chunks
+# scoring above this are dropped; if none remain, the chain refuses without
+# calling the LLM. Calibrated against the index: on-corpus queries scored
+# 0.95-1.25 (best chunk), off-topic queries 1.76-2.02.
+score_threshold: 1.4
 refusal_text: "Not enough info in the docs."
 
 # generation
