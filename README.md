@@ -1,12 +1,12 @@
 # RAG for Marketing Briefs
 
-**Live demo:** _coming soon_ <!-- TODO: live URL after deploy -->
+**Live demo:** https://rag-brand-q-a-assistant-kewjcwl4ezwdteptjda5ny.streamlit.app/
 
 A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers questions **only** from your own documents (brand guidelines, past campaigns, compliance). It provides **source citations** and **refuses** when the answer isn’t in the docs.
 
 * **Retrieval:** FAISS + MiniLM embeddings, with a calibrated **score-threshold refusal gate**
 * **Generation:** Local **Ollama** (e.g., `llama3`) or hosted **Groq** via LangChain
-* **UX / API:** Streamlit demo (`app.py`), FastAPI service (`api/main.py`), CLI (`cli.py`)
+* **UX / API:** Two-mode Streamlit app (`app.py`) — brand demo + upload-your-own-documents, FastAPI service (`api/main.py`), CLI (`cli.py`)
 * **Safety:** Deterministic refusal below the retrieval threshold + “use only context” prompt
 * **Ops:** Config-driven (`config.yaml`), Dockerfile, CI, simple eval harness
 
@@ -21,7 +21,9 @@ A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers que
 * **Grounded answers** with **[source: filename]** citations
 * **Strict refusal**: returns `"Not enough info in the docs."` with an **empty sources list** when no chunk clears the retrieval score threshold — the LLM is never called
 * **Local-first inference** with **Ollama** (no API key), **cloud-ready** with **Groq** (`LLM_PROVIDER=groq`)
-* **Streamlit demo** for quick showcase and screenshots
+* **Two-mode Streamlit app**:
+  * **Brand knowledge demo** — chat over the committed 6-doc index, with example-question chips (including an off-limits one that shows the refusal) and a knowledge-base overview
+  * **Your documents** — upload `.pdf/.md/.txt` (≤50 files, ≤10 MB total); they are chunked with the same splitter, embedded with the same shared model, and indexed **in memory for the session only** (never written to disk). The refusal threshold was calibrated on the demo corpus, so refusal on your documents is best-effort.
 * **FastAPI endpoint** (`POST /ask`) for programmatic use (and Swagger at `/docs`)
 * **Config-only tuning**: chunk size, `k`, model, refusal text, etc.
 * **Lightweight eval harness** (optional) to sanity-check accuracy/refusal/latency
@@ -180,6 +182,11 @@ python ingest.py
 streamlit run app.py
 # open http://localhost:8501
 ```
+
+The app opens in **Brand knowledge demo** mode (the committed index). Switch
+the sidebar to **Your documents** to upload your own files and chat over a
+session-only in-memory index — same retrieval, same threshold gate, same
+prompt, via the shared `make_asker()` code path in `chain.py`.
 
 4b) **Run the API (FastAPI)**
 
