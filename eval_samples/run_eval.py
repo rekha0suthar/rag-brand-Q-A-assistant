@@ -1,6 +1,5 @@
 import json
 import sys
-import time
 from pathlib import Path
 from statistics import mean
 
@@ -46,11 +45,17 @@ def run():
             }
         )
         status = "PASS" if passed else "FAIL"
-        print(f"[{status}] {item['q']}\n  -> {out['answer']}\n  ({out['latency']}s, sources: {out['sources']})\n")
+        print(
+            f"[{status}] {item['q']}\n  -> {out['answer']}\n"
+            f"  ({out['latency']}s, sources: {out['sources']})\n"
+        )
 
     passed_count = sum(r["passed"] for r in rows)
     latencies = [r["latency"] for r in rows]
-    print(f"Score: {passed_count}/{len(rows)} | avg latency: {mean(latencies):.3f}s | max latency: {max(latencies):.3f}s")
+    print(
+        f"Score: {passed_count}/{len(rows)} | avg latency: {mean(latencies):.3f}s "
+        f"| max latency: {max(latencies):.3f}s"
+    )
 
     write_report(rows, passed_count)
     return rows

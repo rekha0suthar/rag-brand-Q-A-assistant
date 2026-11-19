@@ -19,7 +19,7 @@ st.set_page_config(page_title="RAG Brand Q&A", page_icon="🛡️", layout="cent
 from chain import build_llm, make_asker
 from ingest import chunk_texts
 from utils.errors import QuotaExceededError
-from utils.io import load_bytes, has_enough_text
+from utils.io import has_enough_text, load_bytes
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +55,7 @@ st.markdown(
 
 # ---------- cached resources (loaded once, shared by both modes) ----------
 
+
 @st.cache_resource(show_spinner=False)
 def get_cfg():
     return yaml.safe_load(Path("config.yaml").read_text())
@@ -66,6 +67,7 @@ def get_embeddings():
     # session indexes -- MiniLM is ~90MB; loading it twice would be fatal
     # on a 1GB host.
     from langchain_huggingface import HuggingFaceEmbeddings
+
     return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
@@ -77,6 +79,7 @@ def get_llm():
 @st.cache_resource(show_spinner=False)
 def get_demo_asker():
     from langchain_community.vectorstores import FAISS
+
     cfg = get_cfg()
     vs = FAISS.load_local(
         cfg.get("index_dir", "faiss_index"),
@@ -91,8 +94,12 @@ def kb_summaries():
     """(filename, title, one-line description) for each doc in docs/."""
     items = []
     for p in sorted(Path("docs").glob("*.md")):
-        lines = [ln.strip() for ln in p.read_text(encoding="utf-8", errors="ignore").splitlines() if ln.strip()]
-        title = next((ln.lstrip("# ").strip() for ln in lines if ln.startswith("#")), p.stem.replace("_", " ").title())
+        raw_text = p.read_text(encoding="utf-8", errors="ignore")
+        lines = [ln.strip() for ln in raw_text.splitlines() if ln.strip()]
+        fallback_title = p.stem.replace("_", " ").title()
+        title = next(
+            (ln.lstrip("# ").strip() for ln in lines if ln.startswith("#")), fallback_title
+        )
         desc = next((ln.lstrip("-* ").strip() for ln in lines if not ln.startswith("#")), "")
         if len(desc) > 110:
             desc = desc[:107] + "…"
@@ -101,6 +108,7 @@ def kb_summaries():
 
 
 # ---------- answer rendering ----------
+
 
 def is_refusal(out, cfg):
     refusal = cfg.get("refusal_text", "Not enough info in the docs.").lower()
@@ -186,7 +194,7 @@ with st.sidebar:
             type=["pdf", "md", "txt"],
             accept_multiple_files=True,
             help=f"Up to {MAX_FILES} files, {MAX_TOTAL_BYTES // (1024 * 1024)} MB total. "
-                 "Indexed in memory for this session only — nothing is stored.",
+            "Indexed in memory for this session only — nothing is stored.",
         )
         if st.button("Index documents", disabled=not uploads, use_container_width=True):
             if len(uploads) > MAX_FILES:
@@ -221,6 +229,7 @@ with st.sidebar:
                     st.error("No readable text found in the uploaded files — nothing was indexed.")
                 else:
                     from langchain_community.vectorstores import FAISS
+
                     with st.spinner("Embedding and indexing…"):
                         vs = FAISS.from_texts(
                             [c["page_content"] for c in chunks],
@@ -283,7 +292,9 @@ else:
         # Session gate: same code path as demo mode, but with the looser
         # session threshold + relative-margin rule (see config.yaml).
         asker = make_asker(
-            st.session_state["session_vs"], cfg, get_llm(),
+            st.session_state["session_vs"],
+            cfg,
+            get_llm(),
             score_threshold=cfg.get("session_score_threshold", 1.6),
             score_margin=cfg.get("session_score_margin", 0.2),
         )

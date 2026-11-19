@@ -1,0 +1,17 @@
+# Ruff lint + format configuration (checked in CI: ruff check && ruff format --check).
+line-length = 100
+target-version = "py311"
+extend-exclude = ["faiss_index"]
+
+[lint]
+# E/W pycodestyle, F pyflakes, I isort, UP pyupgrade, B bugbear, SIM simplify.
+select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+
+[lint.per-file-ignores]
+# app.py: st.set_page_config must run before other Streamlit calls, which
+# forces project imports below it (E402).
+"app.py" = ["E402"]
+# api/main.py: sys.path bootstrap must precede project imports.
+"api/main.py" = ["E402"]
+# eval harness: sys.path bootstrap before importing chain.
+"eval_samples/run_eval.py" = ["E402"]

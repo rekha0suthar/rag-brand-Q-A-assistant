@@ -1,8 +1,9 @@
 # ingest.py
+from pathlib import Path
+
 import yaml
 from dotenv import load_dotenv
-from pathlib import Path
-from typing import List
+
 from utils.io import load_docs
 
 # Splitters: support both old/new LangChain
@@ -13,10 +14,12 @@ except ImportError:
 
 from langchain_community.vectorstores import FAISS
 
+
 def get_cfg():
     return yaml.safe_load(Path("config.yaml").read_text())
 
-def chunk_texts(docs, chunk_size=800, chunk_overlap=150) -> List[dict]:
+
+def chunk_texts(docs, chunk_size=800, chunk_overlap=150) -> list[dict]:
     """
     Pure chunking step: (filename, text) pairs -> chunk dicts with source metadata.
 
@@ -37,7 +40,8 @@ def chunk_texts(docs, chunk_size=800, chunk_overlap=150) -> List[dict]:
                 chunks.append({"page_content": ch, "metadata": {"source": fname}})
     return chunks
 
-def build_text_chunks(docs_dir="docs") -> List[dict]:
+
+def build_text_chunks(docs_dir="docs") -> list[dict]:
     cfg = get_cfg()
     docs = load_docs(docs_dir)
     if not docs:
@@ -52,9 +56,12 @@ def build_text_chunks(docs_dir="docs") -> List[dict]:
     print(f"[ingest] Total chunks: {len(chunks)}")
     return chunks
 
+
 def _hf_embeddings(model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
     from langchain_huggingface import HuggingFaceEmbeddings
+
     return HuggingFaceEmbeddings(model_name=model_name)
+
 
 def build_index():
     load_dotenv()
@@ -76,6 +83,7 @@ def build_index():
     vs = FAISS.from_texts(texts, embeddings, metadatas=metas)
     vs.save_local(index_dir)
     print(f"[ingest] ✅ Indexed {len(texts)} chunks into {index_dir}")
+
 
 if __name__ == "__main__":
     build_index()

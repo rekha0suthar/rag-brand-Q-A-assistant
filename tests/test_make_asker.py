@@ -38,10 +38,12 @@ CFG = {"top_k": 4, "score_threshold": 1.25, "refusal_text": "Not enough info in 
 
 
 def test_pass_gate_answers_with_sources():
-    vs = StubVectorstore([
-        (FakeDoc("a.md", "alpha facts"), 0.8),
-        (FakeDoc("b.md", "beta facts"), 1.1),
-    ])
+    vs = StubVectorstore(
+        [
+            (FakeDoc("a.md", "alpha facts"), 0.8),
+            (FakeDoc("b.md", "beta facts"), 1.1),
+        ]
+    )
     llm = StubLLM("The discount was 15%.")
     ask = make_asker(vs, CFG, llm)
     out = ask("What discount ran?")
@@ -52,10 +54,12 @@ def test_pass_gate_answers_with_sources():
 
 
 def test_refusal_when_nothing_passes_gate():
-    vs = StubVectorstore([
-        (FakeDoc("a.md", "alpha facts"), 1.5),
-        (FakeDoc("b.md", "beta facts"), 1.9),
-    ])
+    vs = StubVectorstore(
+        [
+            (FakeDoc("a.md", "alpha facts"), 1.5),
+            (FakeDoc("b.md", "beta facts"), 1.9),
+        ]
+    )
     llm = StubLLM()
     ask = make_asker(vs, CFG, llm)
     out = ask("Off-topic question")
@@ -73,10 +77,12 @@ def test_refusal_on_empty_retrieval():
 
 
 def test_context_contains_only_passing_chunks():
-    vs = StubVectorstore([
-        (FakeDoc("keep.md", "KEEP-THIS-CHUNK"), 0.5),
-        (FakeDoc("drop.md", "DROP-THIS-CHUNK"), 2.0),
-    ])
+    vs = StubVectorstore(
+        [
+            (FakeDoc("keep.md", "KEEP-THIS-CHUNK"), 0.5),
+            (FakeDoc("drop.md", "DROP-THIS-CHUNK"), 2.0),
+        ]
+    )
     llm = StubLLM()
     ask = make_asker(vs, CFG, llm)
     out = ask("q")
@@ -94,6 +100,7 @@ def test_result_shape():
 
 
 # ---- provider error mapping ----
+
 
 class RaisingLLM:
     def __init__(self, exc):
@@ -121,6 +128,7 @@ def test_non_quota_llm_error_propagates_unchanged():
 
 # ---- session gate params (threshold override + relative margin) ----
 
+
 def test_session_threshold_override_answers_above_default_gate():
     # 1.45 refuses under the demo threshold (1.25) but answers under the
     # session threshold (1.6) -- the exact bug: natural questions over
@@ -136,11 +144,13 @@ def test_session_threshold_override_answers_above_default_gate():
 def test_session_margin_keeps_sibling_chunk():
     # Best chunk passes at 1.54; sibling at 1.70 is above the 1.6 threshold
     # but within +0.2 of the best, so it must reach the LLM context too.
-    vs = StubVectorstore([
-        (FakeDoc("doc.md", "BEST-CHUNK"), 1.54),
-        (FakeDoc("doc.md", "SIBLING-CHUNK"), 1.70),
-        (FakeDoc("doc.md", "FAR-CHUNK"), 1.90),
-    ])
+    vs = StubVectorstore(
+        [
+            (FakeDoc("doc.md", "BEST-CHUNK"), 1.54),
+            (FakeDoc("doc.md", "SIBLING-CHUNK"), 1.70),
+            (FakeDoc("doc.md", "FAR-CHUNK"), 1.90),
+        ]
+    )
     llm = StubLLM()
     ask = make_asker(vs, CFG, llm, score_threshold=1.6, score_margin=0.2)
     ask("q")
@@ -162,10 +172,12 @@ def test_session_refusal_when_best_above_session_threshold():
 
 def test_refusal_reports_best_score_and_threshold():
     # Refusal transparency: the UI captions "closest match X vs cutoff Y".
-    vs = StubVectorstore([
-        (FakeDoc("doc.md", "x"), 1.82),
-        (FakeDoc("doc.md", "y"), 1.95),
-    ])
+    vs = StubVectorstore(
+        [
+            (FakeDoc("doc.md", "x"), 1.82),
+            (FakeDoc("doc.md", "y"), 1.95),
+        ]
+    )
     ask = make_asker(vs, CFG, StubLLM(), score_threshold=1.6, score_margin=0.2)
     out = ask("off-topic")
     assert out["best_score"] == 1.82

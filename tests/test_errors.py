@@ -19,6 +19,7 @@ class FakeResponse:
 
 # ---- positive cases: everything Groq/langchain might throw at us ----
 
+
 def test_status_code_attribute_429():
     assert is_quota_error(FakeAPIError("boom", status_code=429))
 
@@ -60,6 +61,7 @@ def test_wrapped_cause_is_detected():
 
 
 # ---- negative cases: ordinary failures must NOT be mapped to quota ----
+
 
 @pytest.mark.parametrize(
     "exc",

@@ -44,6 +44,7 @@ def test_lower_is_better_semantics():
 
 # ---- relative-margin rule (session-upload gate) ----
 
+
 def test_margin_keeps_near_best_chunks_above_threshold():
     # Best (1.54) passes the 1.6 gate; 1.55 and 1.70 are within +0.2 of the
     # best, so they are kept even though 1.70 is above the threshold.

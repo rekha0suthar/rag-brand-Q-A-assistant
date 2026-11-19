@@ -4,9 +4,7 @@ Lives in utils (not chain.py) so the FastAPI layer can import the exception
 type without pulling in chain.py's heavy LangChain/embeddings imports.
 """
 
-QUOTA_MESSAGE = (
-    "The free AI quota is temporarily exhausted — please try again in a few minutes."
-)
+QUOTA_MESSAGE = "The free AI quota is temporarily exhausted — please try again in a few minutes."
 
 # Substrings that identify a rate/quota failure in provider error text.
 # Groq's SDK formats HTTP errors as "Error code: 429 - {...'Rate limit reached'...}".

@@ -1,11 +1,9 @@
-# chain.py
-import os, time, yaml
+import os
+import time
 from pathlib import Path
 
-# Load .env before any os.getenv call -- otherwise local Groq runs
-# (LLM_PROVIDER=groq) fail auth unless the key is exported manually.
+import yaml
 from dotenv import load_dotenv
-load_dotenv()
 
 # LangChain imports with 0.2-compatible fallbacks
 try:
@@ -23,10 +21,12 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from utils.errors import QuotaExceededError, is_quota_error
 from utils.logger import pack_result
 
-print("[chain] module imported OK")  # sentinel to prove import succeeded
+# Load .env at import time -- otherwise local Groq runs (LLM_PROVIDER=groq)
+# fail auth unless the key is exported manually in the shell.
+load_dotenv()
 
 PROMPT = PromptTemplate.from_template(
-"""You are a brand-safe marketing assistant.
+    """You are a brand-safe marketing assistant.
 Use ONLY the provided CONTEXT. If the answer is not present, reply exactly: {refusal_text}
 
 Respond concisely in an on-brand tone. Cite sources as [source: <filename>].
@@ -38,6 +38,7 @@ QUESTION: {question}
 
 ANSWER:"""
 )
+
 
 def filter_by_score(results, threshold, margin=None):
     """
@@ -61,11 +62,13 @@ def filter_by_score(results, threshold, margin=None):
     cutoff = threshold if margin is None else max(threshold, best + margin)
     return [(d, s) for d, s in results if s <= cutoff]
 
+
 def _get_cfg():
     cfg_path = Path("config.yaml")
     if not cfg_path.exists():
         raise FileNotFoundError("config.yaml not found in project root.")
     return yaml.safe_load(cfg_path.read_text())
+
 
 def build_llm(cfg):
     """
@@ -79,15 +82,18 @@ def build_llm(cfg):
 
     if provider == "groq":
         from langchain_groq import ChatGroq
+
         model_name = cfg.get("groq_model", "llama-3.3-70b-versatile")
         llm = ChatGroq(model=model_name, temperature=temperature)
     else:
         from langchain_ollama import ChatOllama
+
         model_name = cfg.get("ollama_model", "llama3")
         llm = ChatOllama(model=model_name, temperature=temperature)
 
     print(f"[chain] Using {provider} model: {model_name}")
     return llm
+
 
 def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
     """
@@ -119,7 +125,9 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
         if not kept:
             best = round(min((float(s) for _, s in results), default=0.0), 3) if results else None
             return pack_result(
-                cfg.get("refusal_text", "Not enough info in the docs."), [], time.time() - t0,
+                cfg.get("refusal_text", "Not enough info in the docs."),
+                [],
+                time.time() - t0,
                 extra={"best_score": best, "threshold": threshold},
             )
         docs = [d for d, _ in kept]
@@ -128,10 +136,12 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
         prompt_text = PROMPT.format(
             context=ctx,
             question=question,
-            refusal_text=cfg.get("refusal_text", "Not enough info in the docs.")
+            refusal_text=cfg.get("refusal_text", "Not enough info in the docs."),
         )
         messages = [
-            SystemMessage(content="You are a careful, brand-safe assistant that never invents facts."),
+            SystemMessage(
+                content="You are a careful, brand-safe assistant that never invents facts."
+            ),
             HumanMessage(content=prompt_text),
         ]
         try:
@@ -147,6 +157,7 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
 
     return ask
 
+
 def load_chain():
     """
     Factory that initializes retrieval + LLM and returns a callable: ask(question) -> dict.
@@ -157,9 +168,7 @@ def load_chain():
     # Load FAISS with the SAME embeddings used at ingest
     emb = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vs = FAISS.load_local(
-        cfg.get("index_dir", "faiss_index"),
-        embeddings=emb,
-        allow_dangerous_deserialization=True
+        cfg.get("index_dir", "faiss_index"), embeddings=emb, allow_dangerous_deserialization=True
     )
 
     llm = build_llm(cfg)

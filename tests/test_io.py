@@ -1,4 +1,4 @@
-from utils.io import clean_text, has_enough_text, MIN_DOC_CHARS
+from utils.io import MIN_DOC_CHARS, clean_text, has_enough_text
 
 
 def test_collapses_internal_whitespace():
@@ -23,6 +23,7 @@ def test_plain_text_unchanged():
 
 
 # ---- low-text guard (scanned/image PDFs yield near-empty extraction) ----
+
 
 def test_has_enough_text_rejects_empty_and_none():
     assert not has_enough_text("")

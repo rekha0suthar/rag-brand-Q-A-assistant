@@ -26,5 +26,6 @@ def test_load_bytes_text_formats():
 
 def test_load_bytes_rejects_unknown_extension():
     import pytest
+
     with pytest.raises(ValueError):
         load_bytes("image.png", b"\x89PNG")
