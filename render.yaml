@@ -1,9 +1,13 @@
+# Memory caveat: the free (512MB) plan is tight for torch + MiniLM + FAISS.
+# The python runtime below installs CPU-only torch to help; if it still OOMs,
+# switch to `runtime: docker` -- the repo's Dockerfile bakes the MiniLM
+# weights at build time and needs no build/start commands here.
 services:
   - type: web
     name: rag-brand-qa-assistant
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
     startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0
     envVars:
       - key: LLM_PROVIDER
