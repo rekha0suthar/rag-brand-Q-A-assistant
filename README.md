@@ -23,7 +23,7 @@ A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers que
 * **Local-first inference** with **Ollama** (no API key), **cloud-ready** with **Groq** (`LLM_PROVIDER=groq`)
 * **Two-mode Streamlit app**:
   * **Brand knowledge demo** — chat over the committed 6-doc index, with example-question chips (including an off-limits one that shows the refusal) and a knowledge-base overview
-  * **Your documents** — upload `.pdf/.md/.txt` (≤50 files, ≤10 MB total); they are chunked with the same splitter, embedded with the same shared model, and indexed **in memory for the session only** (never written to disk). The refusal threshold was calibrated on the demo corpus, so refusal on your documents is best-effort.
+  * **Your documents** — upload `.pdf/.md/.txt` (≤50 files, ≤10 MB total); they are chunked with the same splitter, embedded with the same shared model, and indexed **in memory for the session only** (never written to disk). Uploads use a session-calibrated refusal gate (see below); files with little readable text (scanned/image PDFs) are skipped with a visible warning instead of being indexed as garbage.
 * **FastAPI endpoint** (`POST /ask`) for programmatic use (and Swagger at `/docs`)
 * **Config-only tuning**: chunk size, `k`, model, refusal text, etc.
 * **Lightweight eval harness** (optional) to sanity-check accuracy/refusal/latency
@@ -185,8 +185,22 @@ streamlit run app.py
 
 The app opens in **Brand knowledge demo** mode (the committed index). Switch
 the sidebar to **Your documents** to upload your own files and chat over a
-session-only in-memory index — same retrieval, same threshold gate, same
-prompt, via the shared `make_asker()` code path in `chain.py`.
+session-only in-memory index — same retrieval, same prompt, via the shared
+`make_asker()` code path in `chain.py`.
+
+An honest note on the refusal gate: an L2-distance threshold is a **per-corpus
+calibration**, not a universal constant. The demo threshold (1.25) was tuned on
+the 6 committed brand docs; on arbitrary uploads, natural questions score
+systematically higher distances (measured on a synthetic resume + warranty
+policy: best chunks for answerable questions landed at 1.08–1.59, off-topic
+questions at 1.66–2.11), so the demo gate wrongly refused most legitimate
+questions. Upload mode therefore uses a looser `session_score_threshold` (1.6)
+plus a **relative-margin rule**: if the best chunk passes the gate, chunks
+within `session_score_margin` (0.2) of it are kept too; if even the best chunk
+fails, the app refuses and captions the closest-match distance vs the cutoff so
+the behavior is explainable. On an unusual corpus you may still need to re-tune
+these two values in `config.yaml` — that is the inherent trade-off of a
+distance-threshold gate.
 
 4b) **Run the API (FastAPI)**
 

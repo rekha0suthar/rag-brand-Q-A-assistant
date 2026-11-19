@@ -88,3 +88,74 @@ def test_result_shape():
     out = make_asker(vs, CFG, StubLLM())("q")
     assert set(out) == {"answer", "sources", "latency"}
     assert isinstance(out["latency"], float)
+
+
+# ---- session gate params (threshold override + relative margin) ----
+
+def test_session_threshold_override_answers_above_default_gate():
+    # 1.45 refuses under the demo threshold (1.25) but answers under the
+    # session threshold (1.6) -- the exact bug: natural questions over
+    # uploaded docs score higher L2 than the demo corpus.
+    vs = StubVectorstore([(FakeDoc("resume.txt", "worked at Flipkart"), 1.45)])
+    llm = StubLLM("Flipkart.")
+    ask = make_asker(vs, CFG, llm, score_threshold=1.6, score_margin=0.2)
+    out = ask("What companies has this person worked at?")
+    assert out["answer"] == "Flipkart."
+    assert out["sources"] == ["resume.txt"]
+
+
+def test_session_margin_keeps_sibling_chunk():
+    # Best chunk passes at 1.54; sibling at 1.70 is above the 1.6 threshold
+    # but within +0.2 of the best, so it must reach the LLM context too.
+    vs = StubVectorstore([
+        (FakeDoc("doc.md", "BEST-CHUNK"), 1.54),
+        (FakeDoc("doc.md", "SIBLING-CHUNK"), 1.70),
+        (FakeDoc("doc.md", "FAR-CHUNK"), 1.90),
+    ])
+    llm = StubLLM()
+    ask = make_asker(vs, CFG, llm, score_threshold=1.6, score_margin=0.2)
+    ask("q")
+    prompt_text = llm.calls[0][-1].content
+    assert "BEST-CHUNK" in prompt_text
+    assert "SIBLING-CHUNK" in prompt_text
+    assert "FAR-CHUNK" not in prompt_text
+
+
+def test_session_refusal_when_best_above_session_threshold():
+    vs = StubVectorstore([(FakeDoc("doc.md", "x"), 1.82)])
+    llm = StubLLM()
+    ask = make_asker(vs, CFG, llm, score_threshold=1.6, score_margin=0.2)
+    out = ask("What is the capital of France?")
+    assert out["answer"] == "Not enough info in the docs."
+    assert out["sources"] == []
+    assert llm.calls == []
+
+
+def test_refusal_reports_best_score_and_threshold():
+    # Refusal transparency: the UI captions "closest match X vs cutoff Y".
+    vs = StubVectorstore([
+        (FakeDoc("doc.md", "x"), 1.82),
+        (FakeDoc("doc.md", "y"), 1.95),
+    ])
+    ask = make_asker(vs, CFG, StubLLM(), score_threshold=1.6, score_margin=0.2)
+    out = ask("off-topic")
+    assert out["best_score"] == 1.82
+    assert out["threshold"] == 1.6
+
+
+def test_refusal_on_empty_retrieval_has_no_best_score():
+    ask = make_asker(StubVectorstore([]), CFG, StubLLM(), score_threshold=1.6)
+    out = ask("anything")
+    assert out["best_score"] is None
+    assert out["threshold"] == 1.6
+
+
+def test_default_gate_unchanged_without_params():
+    # Demo mode calls make_asker without gate params: cfg score_threshold
+    # (1.25) must still apply exactly.
+    vs = StubVectorstore([(FakeDoc("a.md", "x"), 1.3)])
+    llm = StubLLM()
+    out = make_asker(vs, CFG, llm)("q")
+    assert out["sources"] == []
+    assert llm.calls == []
+    assert out["threshold"] == 1.25

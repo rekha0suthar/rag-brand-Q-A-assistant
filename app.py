@@ -17,7 +17,7 @@ st.set_page_config(page_title="RAG Brand Q&A", page_icon="🛡️", layout="cent
 
 from chain import build_llm, make_asker
 from ingest import chunk_texts
-from utils.io import load_bytes
+from utils.io import load_bytes, has_enough_text
 
 MAX_FILES = 50
 MAX_TOTAL_BYTES = 10 * 1024 * 1024  # 10 MB across all uploads
@@ -110,6 +110,10 @@ def render_assistant(msg):
             "This answer isn't in the loaded documents. "
             "This assistant only answers from them — that's the safety guarantee."
         )
+        # Session mode: make the gate explainable — show how far the closest
+        # chunk was from the refusal cutoff.
+        if msg.get("gate_note"):
+            st.caption(msg["gate_note"])
     else:
         st.markdown(msg["answer"])
         if msg["sources"]:
@@ -118,7 +122,7 @@ def render_assistant(msg):
     st.caption(f"{msg['latency']:.1f}s")
 
 
-def run_question(question, asker, cfg, history):
+def run_question(question, asker, cfg, history, session_mode=False):
     with st.chat_message("user"):
         st.markdown(question)
     with st.chat_message("assistant"):
@@ -128,12 +132,20 @@ def run_question(question, asker, cfg, history):
         except Exception as e:
             st.error(f"The model call failed: {e}")
             return
+        refused = is_refusal(out, cfg)
+        gate_note = None
+        if refused and session_mode and out.get("best_score") is not None:
+            gate_note = (
+                f"Closest match scored {out['best_score']:.2f} — "
+                f"above the {out['threshold']:.2f} cutoff."
+            )
         msg = {
             "role": "assistant",
             "answer": out["answer"],
             "sources": out["sources"],
             "latency": out["latency"],
-            "refused": is_refusal(out, cfg),
+            "refused": refused,
+            "gate_note": gate_note,
         }
         render_assistant(msg)
     history.append({"role": "user", "content": question})
@@ -180,14 +192,24 @@ with st.sidebar:
                         text = load_bytes(f.name, f.getvalue())
                     except Exception:
                         text = ""
-                    (parsed if text.strip() else skipped).append((f.name, text))
+                    # Guard: a scanned/image PDF gives pypdf (almost) no text.
+                    # Indexing it would silently produce garbage matches, so
+                    # skip it with a visible warning instead.
+                    if has_enough_text(text):
+                        parsed.append((f.name, text))
+                    else:
+                        skipped.append((f.name, text))
+                        st.warning(
+                            f"**{f.name}** has little readable text — "
+                            "scanned/image PDFs can't be read. Skipped."
+                        )
                 chunks = chunk_texts(
                     parsed,
                     chunk_size=cfg.get("chunk_size", 800),
                     chunk_overlap=cfg.get("chunk_overlap", 150),
                 )
                 if not chunks:
-                    st.error("No readable text found in the uploaded files.")
+                    st.error("No readable text found in the uploaded files — nothing was indexed.")
                 else:
                     from langchain_community.vectorstores import FAISS
                     with st.spinner("Embedding and indexing…"):
@@ -200,9 +222,6 @@ with st.sidebar:
                     st.session_state["session_vs"] = vs
                     st.session_state["session_stats"] = (len(parsed), len(chunks))
                     st.session_state["history_docs"] = []
-                    if skipped:
-                        st.warning(f"Skipped {len(skipped)} unreadable file(s): "
-                                   + ", ".join(n for n, _ in skipped))
         if "session_stats" in st.session_state:
             n_docs, n_chunks = st.session_state["session_stats"]
             st.success(f"Indexed {n_docs} documents ({n_chunks} chunks).")
@@ -248,11 +267,17 @@ if demo_mode:
     placeholder = "Ask about the brand, campaigns or compliance…"
 else:
     st.caption(
-        "Note: the refusal threshold was calibrated on the demo corpus — "
-        "on your documents, refusal is best-effort."
+        "Note: your documents use a looser, session-calibrated refusal "
+        "threshold — refusal is best-effort on arbitrary corpora."
     )
     if "session_vs" in st.session_state:
-        asker = make_asker(st.session_state["session_vs"], cfg, get_llm())
+        # Session gate: same code path as demo mode, but with the looser
+        # session threshold + relative-margin rule (see config.yaml).
+        asker = make_asker(
+            st.session_state["session_vs"], cfg, get_llm(),
+            score_threshold=cfg.get("session_score_threshold", 1.6),
+            score_margin=cfg.get("session_score_margin", 0.2),
+        )
         input_disabled = False
         placeholder = "Ask about your uploaded documents…"
     else:
@@ -276,4 +301,4 @@ if chip_question and asker is not None:
     question = chip_question
 
 if question and asker is not None:
-    run_question(question, asker, cfg, history)
+    run_question(question, asker, cfg, history, session_mode=not demo_mode)

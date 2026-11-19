@@ -15,6 +15,15 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
+# Below this many extracted characters a "document" is almost certainly a
+# scanned/image PDF (pypdf extracts no text layer) or an empty file --
+# indexing it would only produce garbage matches.
+MIN_DOC_CHARS = 200
+
+def has_enough_text(text: str, min_chars: int = MIN_DOC_CHARS) -> bool:
+    """True when extracted text is long enough to be worth indexing."""
+    return len((text or "").strip()) >= min_chars
+
 def load_bytes(filename: str, data: bytes) -> str:
     """
     Extract cleaned text from raw file bytes (.md/.txt/.pdf) -- the in-memory

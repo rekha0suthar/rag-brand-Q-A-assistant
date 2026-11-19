@@ -14,6 +14,15 @@ index_dir: faiss_index
 score_threshold: 1.25
 refusal_text: "Not enough info in the docs."
 
+# Session ("Your documents") gate. The 1.25 threshold above is calibrated to
+# the demo corpus; natural questions over arbitrary uploads score higher.
+# Measured on synthetic uploads (resume + warranty policy): answerable
+# questions' best chunks 1.08-1.59, off-topic best chunks 1.66-2.11, so 1.6
+# separates them. Margin rule: once the best chunk passes, chunks within
+# +0.2 of it are kept too (neighboring chunks of the same answer).
+session_score_threshold: 1.6
+session_score_margin: 0.2
+
 # generation
 # provider: "ollama" for local dev (needs `ollama serve` running), or
 # "groq" for deployed instances (needs GROQ_API_KEY, no local server).

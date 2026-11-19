@@ -38,14 +38,27 @@ QUESTION: {question}
 ANSWER:"""
 )
 
-def filter_by_score(results, threshold):
+def filter_by_score(results, threshold, margin=None):
     """
     Keep only (doc, score) pairs whose score passes the threshold.
 
     FAISS (as built by ingest.py via FAISS.from_texts) returns L2 DISTANCE,
     so LOWER is better: a doc passes when score <= threshold.
+
+    If `margin` is given (relative-margin rule, used by the session-upload
+    gate): when the BEST chunk passes the threshold, also keep chunks within
+    `margin` of the best score even if they sit above the threshold -- on an
+    arbitrary uploaded corpus the absolute distances shift, but chunks packed
+    close to the best match are usually part of the same answer. If even the
+    best chunk is above the threshold, nothing is kept (refuse).
     """
-    return [(d, s) for d, s in results if s <= threshold]
+    if not results:
+        return []
+    best = min(s for _, s in results)
+    if best > threshold:
+        return []
+    cutoff = threshold if margin is None else max(threshold, best + margin)
+    return [(d, s) for d, s in results if s <= cutoff]
 
 def _get_cfg():
     cfg_path = Path("config.yaml")
@@ -75,7 +88,7 @@ def build_llm(cfg):
     print(f"[chain] Using {provider} model: {model_name}")
     return llm
 
-def make_asker(vectorstore, cfg, llm):
+def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
     """
     Build the ask(question) -> dict callable over ANY vectorstore.
 
@@ -84,7 +97,16 @@ def make_asker(vectorstore, cfg, llm):
     eval harness), and the Streamlit "Your documents" mode wraps it with an
     in-memory index built from uploads. Keeping it here means the refusal
     gate can never drift between entry points.
+
+    Gate parameters (both optional, so demo-mode callers are unchanged):
+      score_threshold -- overrides cfg["score_threshold"]. Session mode passes
+        cfg["session_score_threshold"]: natural questions over arbitrary
+        uploaded documents score systematically higher L2 distances than the
+        demo corpus the default threshold was calibrated on.
+      score_margin -- enables the relative-margin rule in filter_by_score.
     """
+    threshold = score_threshold if score_threshold is not None else cfg.get("score_threshold", 1.25)
+
     def ask(question: str):
         t0 = time.time()
         results = vectorstore.similarity_search_with_score(question, k=cfg.get("top_k", 4))
@@ -92,9 +114,13 @@ def make_asker(vectorstore, cfg, llm):
         # the calibrated threshold. If nothing is close enough, refuse WITHOUT
         # calling the LLM and WITHOUT citing sources -- a refusal that cites
         # documents it didn't use would be misleading.
-        kept = filter_by_score(results, cfg.get("score_threshold", 1.25))
+        kept = filter_by_score(results, threshold, margin=score_margin)
         if not kept:
-            return pack_result(cfg.get("refusal_text", "Not enough info in the docs."), [], time.time() - t0)
+            best = round(min((float(s) for _, s in results), default=0.0), 3) if results else None
+            return pack_result(
+                cfg.get("refusal_text", "Not enough info in the docs."), [], time.time() - t0,
+                extra={"best_score": best, "threshold": threshold},
+            )
         docs = [d for d, _ in kept]
         ctx = "\n\n".join(d.page_content for d in docs)
         sources = [d.metadata.get("source", "unknown") for d in docs]
