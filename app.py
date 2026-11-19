@@ -8,6 +8,7 @@
 # model, the LLM client, and the demo index are each loaded ONCE via
 # st.cache_resource and shared by both modes. Uploads are capped.
 
+import logging
 from pathlib import Path
 
 import streamlit as st
@@ -17,7 +18,10 @@ st.set_page_config(page_title="RAG Brand Q&A", page_icon="🛡️", layout="cent
 
 from chain import build_llm, make_asker
 from ingest import chunk_texts
+from utils.errors import QuotaExceededError
 from utils.io import load_bytes, has_enough_text
+
+log = logging.getLogger(__name__)
 
 MAX_FILES = 50
 MAX_TOTAL_BYTES = 10 * 1024 * 1024  # 10 MB across all uploads
@@ -129,8 +133,13 @@ def run_question(question, asker, cfg, history, session_mode=False):
         try:
             with st.spinner("Retrieving and generating…"):
                 out = asker(question)
-        except Exception as e:
-            st.error(f"The model call failed: {e}")
+        except QuotaExceededError as e:
+            st.warning(str(e), icon="⏳")
+            return
+        except Exception:
+            # Never dump a traceback into the UI; details go to the server log.
+            log.exception("ask() failed for question: %r", question)
+            st.error("Something went wrong while generating the answer. Please try again.")
             return
         refused = is_refusal(out, cfg)
         gate_note = None

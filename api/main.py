@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils.errors import QuotaExceededError  # light import, no LangChain
+
 ask = None                  # will hold the callable returned by load_chain()
 ask_init_error = None       # capture init error text for debugging
 
@@ -65,7 +67,11 @@ def ask_endpoint(q: Query):
             "error_tail": ask_init_error.splitlines()[-1]
         })
     try:
-        out = ask(q.question)
-        return out
+        return ask(q.question)
+    except QuotaExceededError as e:
+        # str(e) is the user-facing quota message from utils.errors.
+        raise HTTPException(status_code=429, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the traceback server-side; never leak exception details to clients.
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Internal error while answering.") from e

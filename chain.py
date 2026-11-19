@@ -20,6 +20,7 @@ except ImportError:
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
+from utils.errors import QuotaExceededError, is_quota_error
 from utils.logger import pack_result
 
 print("[chain] module imported OK")  # sentinel to prove import succeeded
@@ -133,7 +134,14 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
             SystemMessage(content="You are a careful, brand-safe assistant that never invents facts."),
             HumanMessage(content=prompt_text),
         ]
-        out = llm.invoke(messages)
+        try:
+            out = llm.invoke(messages)
+        except Exception as e:
+            # Map provider rate/quota failures to a clean, user-facing error;
+            # everything else propagates for the caller to log.
+            if is_quota_error(e):
+                raise QuotaExceededError() from e
+            raise
         ans = getattr(out, "content", out)
         return pack_result(ans, sources, time.time() - t0)
 

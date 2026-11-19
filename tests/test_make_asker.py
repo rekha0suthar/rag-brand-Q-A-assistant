@@ -1,4 +1,7 @@
+import pytest
+
 from chain import make_asker
+from utils.errors import QuotaExceededError
 
 
 class FakeDoc:
@@ -88,6 +91,32 @@ def test_result_shape():
     out = make_asker(vs, CFG, StubLLM())("q")
     assert set(out) == {"answer", "sources", "latency"}
     assert isinstance(out["latency"], float)
+
+
+# ---- provider error mapping ----
+
+class RaisingLLM:
+    def __init__(self, exc):
+        self.exc = exc
+
+    def invoke(self, messages):
+        raise self.exc
+
+
+def test_quota_error_mapped_to_user_facing_exception():
+    vs = StubVectorstore([(FakeDoc("a.md", "alpha facts"), 0.8)])
+    exc = Exception("Error code: 429 - {'error': {'message': 'Rate limit reached'}}")
+    ask = make_asker(vs, CFG, RaisingLLM(exc))
+    with pytest.raises(QuotaExceededError) as excinfo:
+        ask("q")
+    assert "quota" in str(excinfo.value).lower()
+
+
+def test_non_quota_llm_error_propagates_unchanged():
+    vs = StubVectorstore([(FakeDoc("a.md", "alpha facts"), 0.8)])
+    ask = make_asker(vs, CFG, RaisingLLM(ConnectionError("connection refused")))
+    with pytest.raises(ConnectionError):
+        ask("q")
 
 
 # ---- session gate params (threshold override + relative margin) ----
