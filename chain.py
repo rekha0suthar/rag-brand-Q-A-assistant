@@ -2,6 +2,11 @@
 import os, time, yaml
 from pathlib import Path
 
+# Load .env before any os.getenv call -- otherwise local Groq runs
+# (LLM_PROVIDER=groq) fail auth unless the key is exported manually.
+from dotenv import load_dotenv
+load_dotenv()
+
 # LangChain imports with 0.2-compatible fallbacks
 try:
     from langchain_core.prompts import PromptTemplate
