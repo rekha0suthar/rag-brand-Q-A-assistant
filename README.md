@@ -1,5 +1,7 @@
 # RAG for Marketing Briefs
 
+[![CI](https://github.com/rekha0suthar/rag-brand-Q-A-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/rekha0suthar/rag-brand-Q-A-assistant/actions/workflows/ci.yml)
+
 **Live demo:** https://rag-brand-q-a-assistant-kewjcwl4ezwdteptjda5ny.streamlit.app/
 
 A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers questions **only** from your own documents (brand guidelines, past campaigns, compliance). It provides **source citations** and **refuses** when the answer isn’t in the docs.
@@ -8,7 +10,10 @@ A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers que
 * **Generation:** Local **Ollama** (e.g., `llama3`) or hosted **Groq** via LangChain
 * **UX / API:** Two-mode Streamlit app (`app.py`) — brand demo + upload-your-own-documents, FastAPI service (`api/main.py`), CLI (`cli.py`)
 * **Safety:** Deterministic refusal below the retrieval threshold + “use only context” prompt
-* **Ops:** Config-driven (`config.yaml`), Dockerfile, CI, simple eval harness
+* **Ops:** Config-driven (`config.yaml`), Dockerfile, CI (ruff lint + 69 tests, gated deploys), simple eval harness
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram, the design
+decisions behind the refusal gate, and the known tradeoffs.
 
 ---
 ## Demo Video
@@ -25,12 +30,17 @@ A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers que
   * **Brand knowledge demo** — chat over the committed 6-doc index, with example-question chips (including an off-limits one that shows the refusal) and a knowledge-base overview
   * **Your documents** — upload `.pdf/.md/.txt` (≤50 files, ≤10 MB total); they are chunked with the same splitter, embedded with the same shared model, and indexed **in memory for the session only** (never written to disk). Uploads use a session-calibrated refusal gate (see below); files with little readable text (scanned/image PDFs) are skipped with a visible warning instead of being indexed as garbage.
 * **FastAPI endpoint** (`POST /ask`) for programmatic use (and Swagger at `/docs`)
-* **Config-only tuning**: chunk size, `k`, model, refusal text, etc.
+* **Clean failure modes**: Groq rate/quota errors surface as a friendly "free AI
+  quota is temporarily exhausted" message (HTTP 429 on the API); unexpected
+  errors show a short message and log server-side — never a traceback in the UI
+* **Config-only tuning**: chunk size, `k`, models, thresholds, refusal text
 * **Lightweight eval harness** (optional) to sanity-check accuracy/refusal/latency
 
 ---
 
 ## 🧠 Architecture
+
+Full version with design rationale: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ```
                  ┌───────────────────────────────────────────┐
@@ -56,15 +66,17 @@ User question ──► embed(q) ──► FAISS retrieve top-k chunks ──►
 
 ```
 rag-brand-Q-A-assistant/
-├─ app.py                 # Streamlit demo UI
+├─ app.py                 # Two-mode Streamlit UI (brand demo + uploads)
 ├─ cli.py                 # Interactive command-line Q&A
 ├─ api/
 │  └─ main.py             # FastAPI service (POST /ask, /docs, /healthz)
 ├─ chain.py               # Retrieval + threshold gate + prompt + generation
 ├─ ingest.py              # Build FAISS index from docs/
 ├─ utils/
+│  ├─ config.py           # Shared config loader + embedding-model default
+│  ├─ errors.py           # Quota/rate-limit error classification
 │  ├─ io.py               # Load/clean .md/.txt/.pdf
-│  └─ logger.py           # Packaging + simple timing/log helpers
+│  └─ logger.py           # ask() result packaging
 ├─ config.yaml            # Chunking/k/models/safety knobs
 ├─ docs/                  # Marketing docs (brand, campaigns, compliance)
 │  ├─ brand_guidelines.md
@@ -79,10 +91,12 @@ rag-brand-Q-A-assistant/
 │  ├─ run_eval.py         # Evaluation runner -- writes eval_samples/report.md
 │  └─ report.md           # Last committed eval report
 ├─ tests/                 # Unit tests (pytest) -- no models or API keys needed
-├─ .github/workflows/ci.yml
+├─ .github/workflows/ci.yml   # lint + tests, then main -> release promotion
+├─ ARCHITECTURE.md        # Data flow, design decisions, tradeoffs
 ├─ Dockerfile             # Streamlit image with baked MiniLM weights
 ├─ requirements.txt       # Pinned runtime deps
-├─ requirements-dev.txt   # Dev deps (pytest)
+├─ requirements-dev.txt   # Dev deps (pytest, ruff, httpx)
+├─ ruff.toml              # Lint/format config
 ├─ render.yaml            # Render Blueprint (Streamlit demo)
 ├─ .env.example
 ├─ LICENSE
@@ -134,6 +148,7 @@ top_k: 4
 
 # index
 index_dir: faiss_index
+embedding_model: sentence-transformers/all-MiniLM-L6-v2  # rebuild index if changed
 
 # safety
 # L2 distance cutoff for retrieved chunks (lower = closer). Chunks above it
@@ -141,10 +156,14 @@ index_dir: faiss_index
 score_threshold: 1.25
 refusal_text: "Not enough info in the docs."
 
+# "Your documents" (session upload) gate -- see the calibration note below
+session_score_threshold: 1.6
+session_score_margin: 0.2
+
 # generation
 provider: ollama            # or "groq"; LLM_PROVIDER env var overrides
 ollama_model: llama3
-groq_model: llama-3.3-70b-versatile
+groq_model: openai/gpt-oss-120b
 temperature: 0.0
 ```
 
@@ -230,6 +249,19 @@ curl -s -X POST http://localhost:8000/ask \
 
 ---
 
+## ✅ Tests & Lint
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q            # 69 unit tests -- no models, index or API keys needed
+ruff check .         # lint
+ruff format --check .
+```
+
+CI runs both on every push and PR.
+
+---
+
 ## 🚢 Deployment
 
 The live demo runs on **Streamlit Community Cloud**, tracking the **`release`**
@@ -280,19 +312,14 @@ python eval_samples/run_eval.py
 ```
 
 It prints a pass/fail + latency per question and writes
-`eval_samples/report.md`. The committed report predates the score-threshold
-gate and the corpus expansion (re-run pending). Last committed run — 5 of the
-now 10 cases (Groq, `llama-3.3-70b-versatile`):
+[`eval_samples/report.md`](eval_samples/report.md). Last committed run — all
+10 cases (Groq, `openai/gpt-oss-120b`):
 
-**Score:** 5/5 &nbsp;|&nbsp; **Avg latency:** 0.36s &nbsp;|&nbsp; **Max latency:** 0.54s
+**Score:** 10/10 &nbsp;|&nbsp; **Avg latency:** 0.65s &nbsp;|&nbsp; **Max latency:** 1.70s
 
-| # | Question | Result |
-|---|----------|--------|
-| 1 | List 3 words our brand voice avoids. | ✅ PASS |
-| 2 | Give a compliant disclaimer we must include for discounts. | ✅ PASS |
-| 3 | What was our 2023 revenue? | ✅ PASS (correctly refused) |
-| 4 | Write one playful headline for Diwali 2024. | ✅ PASS |
-| 5 | Are health claims allowed in our marketing? | ✅ PASS (correctly refused -- not in docs) |
+The set covers grounded answers (disclaimers, campaign facts, policy
+details) and refusals (2023 revenue, 1998 World Cup — not in the docs, so the
+gate must refuse without citing anything).
 
 ---
 
