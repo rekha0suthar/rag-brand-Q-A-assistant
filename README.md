@@ -230,6 +230,19 @@ curl -s -X POST http://localhost:8000/ask \
 
 ---
 
+## 🚢 Deployment
+
+The live demo runs on **Streamlit Community Cloud**, tracking the **`release`**
+branch — not `main`. CI promotes `main` → `release` automatically (a
+force-push in the `promote` job of
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)) **only after the test
+job passes**, so a commit that breaks the suite can land on `main` but never
+reaches the deployed app. The first CI run on `main` creates the remote
+`release` branch; point the Streamlit Cloud app at it under
+*Settings → Branch*.
+
+---
+
 ## 🧪 Quick Test Prompts
 
 * “List 3 words our brand voice avoids.”
