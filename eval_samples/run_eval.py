@@ -21,7 +21,16 @@ REPORT_FILE = Path(__file__).resolve().parent / "report.md"
 
 
 def check(item, answer: str, sources=None) -> bool:
+    # Normalize Unicode punctuation before substring checks: models emit
+    # non-breaking hyphens (U+2011) and curly quotes for text that is
+    # semantically identical to the golden set's ASCII.
     ans = answer.lower()
+    unicode_to_ascii = {
+        "‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-",
+        "‘": "'", "’": "'", "“": '"', "”": '"',
+    }
+    for uni, ascii_ in unicode_to_ascii.items():
+        ans = ans.replace(uni, ascii_)
     if item["type"] == "refuse":
         # A real refusal must not cite sources: the score-threshold gate in
         # chain.py returns an empty sources list when it refuses.

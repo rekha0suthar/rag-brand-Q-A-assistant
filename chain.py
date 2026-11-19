@@ -7,6 +7,7 @@ load_chain().
 """
 
 import os
+import re
 import time
 
 from dotenv import load_dotenv
@@ -36,7 +37,8 @@ PROMPT = PromptTemplate.from_template(
     """You are a brand-safe marketing assistant.
 Use ONLY the provided CONTEXT. If the answer is not present, reply exactly: {refusal_text}
 
-Respond concisely in an on-brand tone. Cite sources as [source: <filename>].
+Respond concisely in an on-brand tone. Do not include citations or source
+tags in your answer -- sources are attached separately by the system.
 
 CONTEXT:
 {context}
@@ -153,10 +155,21 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
             if is_quota_error(e):
                 raise QuotaExceededError() from e
             raise
-        ans = getattr(out, "content", out)
+        ans = strip_inline_citations(getattr(out, "content", out))
         return pack_result(ans, sources, time.time() - t0)
 
     return ask
+
+
+# Models sometimes emit "[source: <name>]" tags with invented filenames even
+# when told not to. Retrieval metadata is the only trustworthy citation, so
+# inline tags are stripped rather than shown.
+_INLINE_CITATION = re.compile(r"\s*\[source:[^\]]*\]", re.IGNORECASE)
+
+
+def strip_inline_citations(text):
+    """Remove model-emitted [source: ...] tags; real sources come from retrieval."""
+    return _INLINE_CITATION.sub("", text).strip()
 
 
 def load_chain():

@@ -32,5 +32,9 @@ session_score_margin: 0.2
 # Overridable via the LLM_PROVIDER env var without editing this file.
 provider: ollama
 ollama_model: llama3
-groq_model: openai/gpt-oss-120b
+# 20b (not 120b): Groq free-tier quotas are per account PER MODEL, so running
+# this app on a different model than ai-resume-tailor (120b) isolates their
+# quotas — one demo hitting its daily limit no longer takes down the other.
+# Grounded short-context QA holds quality on the smaller model (eval-verified).
+groq_model: openai/gpt-oss-20b
 temperature: 0.0
