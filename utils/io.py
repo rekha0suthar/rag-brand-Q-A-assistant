@@ -15,6 +15,24 @@ def clean_text(text: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
+def load_bytes(filename: str, data: bytes) -> str:
+    """
+    Extract cleaned text from raw file bytes (.md/.txt/.pdf) -- the in-memory
+    counterpart of load_docs, used for Streamlit uploads that never touch disk.
+    Raises ValueError for unsupported extensions.
+    """
+    suffix = Path(filename).suffix.lower()
+    if suffix in {".md", ".txt"}:
+        text = data.decode("utf-8", errors="ignore")
+    elif suffix == ".pdf":
+        import io
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(data))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    else:
+        raise ValueError(f"Unsupported file type: {suffix or filename}")
+    return clean_text(text)
+
 def load_docs(docs_dir: str = "docs") -> List[Tuple[str, str]]:
     """
     Returns list of (filename, cleaned_text)

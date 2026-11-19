@@ -53,25 +53,13 @@ def _get_cfg():
         raise FileNotFoundError("config.yaml not found in project root.")
     return yaml.safe_load(cfg_path.read_text())
 
-def load_chain():
+def build_llm(cfg):
     """
-    Factory that initializes retrieval + LLM and returns a callable: ask(question) -> dict.
-    Kept inside a function so importing chain.py never triggers heavy work.
+    Initialize the LLM. LLM_PROVIDER env var overrides config.yaml so a
+    deploy host (e.g. Render, set LLM_PROVIDER=groq) doesn't require
+    editing the file -- "groq" needs no locally-running server, "ollama"
+    is for local dev where `ollama serve` is actually running.
     """
-    cfg = _get_cfg()
-
-    # 1) Load FAISS with the SAME embeddings used at ingest
-    emb = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vs = FAISS.load_local(
-        cfg.get("index_dir", "faiss_index"),
-        embeddings=emb,
-        allow_dangerous_deserialization=True
-    )
-
-    # 2) Initialize the LLM. LLM_PROVIDER env var overrides config.yaml so a
-    # deploy host (e.g. Render, set LLM_PROVIDER=groq) doesn't require
-    # editing the file -- "groq" needs no locally-running server, "ollama"
-    # is for local dev where `ollama serve` is actually running.
     provider = os.getenv("LLM_PROVIDER", cfg.get("provider", "ollama"))
     temperature = cfg.get("temperature", 0.0)
 
@@ -85,10 +73,21 @@ def load_chain():
         llm = ChatOllama(model=model_name, temperature=temperature)
 
     print(f"[chain] Using {provider} model: {model_name}")
+    return llm
 
+def make_asker(vectorstore, cfg, llm):
+    """
+    Build the ask(question) -> dict callable over ANY vectorstore.
+
+    Single code path for retrieval + threshold gate + grounded generation:
+    load_chain() wraps it with the committed disk index (demo mode, API,
+    eval harness), and the Streamlit "Your documents" mode wraps it with an
+    in-memory index built from uploads. Keeping it here means the refusal
+    gate can never drift between entry points.
+    """
     def ask(question: str):
         t0 = time.time()
-        results = vs.similarity_search_with_score(question, k=cfg.get("top_k", 4))
+        results = vectorstore.similarity_search_with_score(question, k=cfg.get("top_k", 4))
         # Deterministic refusal gate: drop chunks whose L2 distance is above
         # the calibrated threshold. If nothing is close enough, refuse WITHOUT
         # calling the LLM and WITHOUT citing sources -- a refusal that cites
@@ -113,3 +112,21 @@ def load_chain():
         return pack_result(ans, sources, time.time() - t0)
 
     return ask
+
+def load_chain():
+    """
+    Factory that initializes retrieval + LLM and returns a callable: ask(question) -> dict.
+    Kept inside a function so importing chain.py never triggers heavy work.
+    """
+    cfg = _get_cfg()
+
+    # Load FAISS with the SAME embeddings used at ingest
+    emb = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    vs = FAISS.load_local(
+        cfg.get("index_dir", "faiss_index"),
+        embeddings=emb,
+        allow_dangerous_deserialization=True
+    )
+
+    llm = build_llm(cfg)
+    return make_asker(vs, cfg, llm)

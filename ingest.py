@@ -16,16 +16,17 @@ from langchain_community.vectorstores import FAISS
 def get_cfg():
     return yaml.safe_load(Path("config.yaml").read_text())
 
-def build_text_chunks(docs_dir="docs") -> List[dict]:
-    cfg = get_cfg()
-    docs = load_docs(docs_dir)
-    if not docs:
-        raise RuntimeError(
-            "[ingest] No readable docs found. Put .md/.txt text files or text-based PDFs in ./docs"
-        )
+def chunk_texts(docs, chunk_size=800, chunk_overlap=150) -> List[dict]:
+    """
+    Pure chunking step: (filename, text) pairs -> chunk dicts with source metadata.
+
+    Shared by build_index() (disk index from ./docs) and the Streamlit
+    "Your documents" mode (in-memory index from uploads) so both use
+    identical splitter settings.
+    """
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=cfg.get("chunk_size", 800),
-        chunk_overlap=cfg.get("chunk_overlap", 150),
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
     )
     chunks = []
     for fname, text in docs:
@@ -34,6 +35,20 @@ def build_text_chunks(docs_dir="docs") -> List[dict]:
             ch = (ch or "").strip()
             if ch:
                 chunks.append({"page_content": ch, "metadata": {"source": fname}})
+    return chunks
+
+def build_text_chunks(docs_dir="docs") -> List[dict]:
+    cfg = get_cfg()
+    docs = load_docs(docs_dir)
+    if not docs:
+        raise RuntimeError(
+            "[ingest] No readable docs found. Put .md/.txt text files or text-based PDFs in ./docs"
+        )
+    chunks = chunk_texts(
+        docs,
+        chunk_size=cfg.get("chunk_size", 800),
+        chunk_overlap=cfg.get("chunk_overlap", 150),
+    )
     print(f"[ingest] Total chunks: {len(chunks)}")
     return chunks
 
