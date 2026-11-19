@@ -1,5 +1,9 @@
 # Eval report
 
+> **Stale — predates the score-threshold gate; re-run pending.** Refusal rows
+> below still show sources; since the gate landed, refusals return an empty
+> sources list and the checker requires it.
+
 **Score:** 5/5  
 **Avg latency:** 0.364s  
 **Max latency:** 0.535s

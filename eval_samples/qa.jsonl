@@ -2,4 +2,9 @@
 {"q": "Give a compliant disclaimer we must include for discounts.", "type": "contains", "text": "limited-time offer"}
 {"q": "What was our 2023 revenue?", "type": "refuse"}
 {"q": "Write one playful headline for Diwali 2024.", "type": "keywords", "any_of": ["light", "festive", "gift", "sparkle", "joy"]}
-{"q": "Are health claims allowed in our marketing?", "type": "refuse"}
+{"q": "Are health claims allowed in our marketing?", "type": "keywords", "any_of": ["prohibited", "not allowed", "banned", "no health", "never"]}
+{"q": "What discount ran in the Summer 2025 campaign?", "type": "keywords", "any_of": ["15%", "flat 15", "1,499", "1499"]}
+{"q": "What label must influencer and paid partnership posts carry?", "type": "keywords", "any_of": ["#ad", "paid partnership"]}
+{"q": "How many emoji are allowed in a social caption?", "type": "keywords", "any_of": ["one per", "one emoji", "maximum of one", "at most one", "one, maximum"]}
+{"q": "What is our refund policy for damaged items?", "type": "refuse"}
+{"q": "Who won the 1998 FIFA World Cup?", "type": "refuse"}

@@ -15,10 +15,12 @@ EVAL_FILE = Path(__file__).resolve().parent / "qa.jsonl"
 REPORT_FILE = Path(__file__).resolve().parent / "report.md"
 
 
-def check(item, answer: str) -> bool:
+def check(item, answer: str, sources=None) -> bool:
     ans = answer.lower()
     if item["type"] == "refuse":
-        return "not enough info" in ans
+        # A real refusal must not cite sources: the score-threshold gate in
+        # chain.py returns an empty sources list when it refuses.
+        return "not enough info" in ans and not sources
     if item["type"] == "contains":
         return item["text"].lower() in ans
     if item["type"] == "keywords":
@@ -33,7 +35,7 @@ def run():
     rows = []
     for item in items:
         out = ask(item["q"])
-        passed = check(item, out["answer"])
+        passed = check(item, out["answer"], out["sources"])
         rows.append(
             {
                 "question": item["q"],
