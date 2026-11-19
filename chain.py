@@ -1,8 +1,14 @@
+"""Retrieval + refusal gate + grounded generation.
+
+The core pipeline: make_asker() builds an ask(question) -> dict callable over
+any vectorstore, load_chain() wires it to the committed FAISS index and the
+configured LLM. Everything import-time is cheap; heavy work happens in
+load_chain().
+"""
+
 import os
 import time
-from pathlib import Path
 
-import yaml
 from dotenv import load_dotenv
 
 # LangChain imports with 0.2-compatible fallbacks
@@ -18,6 +24,7 @@ except ImportError:
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
+from utils.config import embedding_model_name, load_config
 from utils.errors import QuotaExceededError, is_quota_error
 from utils.logger import pack_result
 
@@ -63,13 +70,6 @@ def filter_by_score(results, threshold, margin=None):
     return [(d, s) for d, s in results if s <= cutoff]
 
 
-def _get_cfg():
-    cfg_path = Path("config.yaml")
-    if not cfg_path.exists():
-        raise FileNotFoundError("config.yaml not found in project root.")
-    return yaml.safe_load(cfg_path.read_text())
-
-
 def build_llm(cfg):
     """
     Initialize the LLM. LLM_PROVIDER env var overrides config.yaml so a
@@ -113,6 +113,7 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
       score_margin -- enables the relative-margin rule in filter_by_score.
     """
     threshold = score_threshold if score_threshold is not None else cfg.get("score_threshold", 1.25)
+    refusal_text = cfg.get("refusal_text", "Not enough info in the docs.")
 
     def ask(question: str):
         t0 = time.time()
@@ -125,7 +126,7 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
         if not kept:
             best = round(min((float(s) for _, s in results), default=0.0), 3) if results else None
             return pack_result(
-                cfg.get("refusal_text", "Not enough info in the docs."),
+                refusal_text,
                 [],
                 time.time() - t0,
                 extra={"best_score": best, "threshold": threshold},
@@ -136,7 +137,7 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
         prompt_text = PROMPT.format(
             context=ctx,
             question=question,
-            refusal_text=cfg.get("refusal_text", "Not enough info in the docs."),
+            refusal_text=refusal_text,
         )
         messages = [
             SystemMessage(
@@ -163,10 +164,10 @@ def load_chain():
     Factory that initializes retrieval + LLM and returns a callable: ask(question) -> dict.
     Kept inside a function so importing chain.py never triggers heavy work.
     """
-    cfg = _get_cfg()
+    cfg = load_config()
 
-    # Load FAISS with the SAME embeddings used at ingest
-    emb = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    # Load FAISS with the SAME embeddings used at ingest (see utils/config.py).
+    emb = HuggingFaceEmbeddings(model_name=embedding_model_name(cfg))
     vs = FAISS.load_local(
         cfg.get("index_dir", "faiss_index"), embeddings=emb, allow_dangerous_deserialization=True
     )

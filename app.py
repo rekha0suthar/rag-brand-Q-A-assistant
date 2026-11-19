@@ -1,23 +1,24 @@
-# app.py -- two-mode Streamlit UI over the shared make_asker() pipeline.
-#
-# Mode 1 "Brand knowledge demo": committed faiss_index + the 6 docs/ files.
-# Mode 2 "Your documents": uploads -> in-memory FAISS in session_state
-#                          (never written to disk).
-#
-# Memory notes for Streamlit Community Cloud (~1GB RAM): the MiniLM embedding
-# model, the LLM client, and the demo index are each loaded ONCE via
-# st.cache_resource and shared by both modes. Uploads are capped.
+"""Two-mode Streamlit UI over the shared make_asker() pipeline.
+
+Mode 1 "Brand knowledge demo": committed faiss_index + the 6 docs/ files.
+Mode 2 "Your documents": uploads -> in-memory FAISS in session_state
+                         (never written to disk).
+
+Memory notes for Streamlit Community Cloud (~1GB RAM): the MiniLM embedding
+model, the LLM client, and the demo index are each loaded ONCE via
+st.cache_resource and shared by both modes. Uploads are capped.
+"""
 
 import logging
 from pathlib import Path
 
 import streamlit as st
-import yaml
 
 st.set_page_config(page_title="RAG Brand Q&A", page_icon="🛡️", layout="centered")
 
 from chain import build_llm, make_asker
 from ingest import chunk_texts
+from utils.config import embedding_model_name, load_config
 from utils.errors import QuotaExceededError
 from utils.io import has_enough_text, load_bytes
 
@@ -58,7 +59,7 @@ st.markdown(
 
 @st.cache_resource(show_spinner=False)
 def get_cfg():
-    return yaml.safe_load(Path("config.yaml").read_text())
+    return load_config()
 
 
 @st.cache_resource(show_spinner=False)
@@ -68,7 +69,7 @@ def get_embeddings():
     # on a 1GB host.
     from langchain_huggingface import HuggingFaceEmbeddings
 
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    return HuggingFaceEmbeddings(model_name=embedding_model_name(get_cfg()))
 
 
 @st.cache_resource(show_spinner=False)
@@ -203,11 +204,14 @@ with st.sidebar:
                 st.error(f"Uploads exceed {MAX_TOTAL_BYTES // (1024 * 1024)} MB total.")
             else:
                 cfg = get_cfg()
-                parsed, skipped = [], []
+                parsed = []
                 for f in uploads:
                     try:
                         text = load_bytes(f.name, f.getvalue())
                     except Exception:
+                        # A corrupt/unparseable file is treated exactly like a
+                        # file with no extractable text: it falls through to
+                        # the low-text guard and gets a visible skip warning.
                         text = ""
                     # Guard: a scanned/image PDF gives pypdf (almost) no text.
                     # Indexing it would silently produce garbage matches, so
@@ -215,7 +219,6 @@ with st.sidebar:
                     if has_enough_text(text):
                         parsed.append((f.name, text))
                     else:
-                        skipped.append((f.name, text))
                         st.warning(
                             f"**{f.name}** has little readable text — "
                             "scanned/image PDFs can't be read. Skipped."

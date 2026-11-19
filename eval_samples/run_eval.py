@@ -1,3 +1,9 @@
+"""Run the golden-set eval (qa.jsonl) against the live chain.
+
+Prints pass/fail + latency per question and writes eval_samples/report.md.
+Requires a working LLM provider (Ollama running, or LLM_PROVIDER=groq + key).
+"""
+
 import json
 import sys
 from pathlib import Path

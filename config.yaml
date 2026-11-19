@@ -5,6 +5,9 @@ top_k: 4
 
 # index
 index_dir: faiss_index
+# Used at BOTH ingest and query time -- changing it requires `python ingest.py`
+# to rebuild the index, or the stored vectors won't match query embeddings.
+embedding_model: sentence-transformers/all-MiniLM-L6-v2
 
 # safety
 # FAISS similarity scores here are L2 distances (lower = closer). Chunks

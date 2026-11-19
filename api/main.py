@@ -1,4 +1,10 @@
-# api/main.py
+"""FastAPI service exposing the RAG chain as POST /ask (plus /healthz).
+
+The chain is initialized once at startup via the lifespan hook; init failures
+keep the server up (healthz reports degraded, /ask returns 503) so the
+container is debuggable instead of crash-looping.
+"""
+
 import sys
 import traceback
 from contextlib import asynccontextmanager
@@ -15,8 +21,8 @@ if str(ROOT) not in sys.path:
 
 from utils.errors import QuotaExceededError  # light import, no LangChain
 
-ask = None  # will hold the callable returned by load_chain()
-ask_init_error = None  # capture init error text for debugging
+ask = None  # the callable returned by load_chain(), set at startup
+ask_init_error = None  # full init traceback, kept for /healthz diagnostics
 
 
 class Query(BaseModel):
@@ -36,7 +42,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         ask = None
         ask_init_error = "".join(traceback.format_exception(type(e), e, e.__traceback__))
-        # Don’t raise, so /healthz and /docs still work; /ask will return 503
+        # Don't raise: /healthz and /docs must still work; /ask returns 503.
         print("[api] load_chain FAILED\n" + ask_init_error)
     yield
 

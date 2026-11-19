@@ -1,17 +1,14 @@
-import time
-from contextlib import contextmanager
+"""Result packaging shared by every ask() entry point."""
+
 from typing import Any
 
 
-@contextmanager
-def timer():
-    t0 = time.time()
-    yield
-    t1 = time.time()
-    print(f"[timer] {t1 - t0:.3f}s")
-
-
 def pack_result(answer: str, sources, latency: float, extra: dict[str, Any] | None = None):
+    """Shape an answer into the dict contract returned by ask().
+
+    Returns {"answer", "sources" (deduped + sorted), "latency" (rounded, s)}
+    plus any `extra` keys merged in (e.g. refusal diagnostics).
+    """
     payload = {
         "answer": answer,
         "sources": sorted(set(sources or [])),

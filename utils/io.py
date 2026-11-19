@@ -1,22 +1,25 @@
+"""Document loading and text extraction (.md/.txt/.pdf), from disk or bytes."""
+
 import re
 from pathlib import Path
 
 
-def load_markdown(path: Path) -> str:
+def load_text(path: Path) -> str:
+    """Read a plain-text file (.md/.txt), ignoring undecodable bytes."""
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
 def load_pdf(path: Path) -> str:
+    """Extract the text layer of a PDF (empty string per page without one)."""
     from pypdf import PdfReader
 
     reader = PdfReader(str(path))
-    text = "\n".join(page.extract_text() or "" for page in reader.pages)
-    return text
+    return "\n".join(page.extract_text() or "" for page in reader.pages)
 
 
 def clean_text(text: str) -> str:
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    """Collapse all whitespace runs to single spaces and strip the ends."""
+    return re.sub(r"\s+", " ", text).strip()
 
 
 # Below this many extracted characters a "document" is almost certainly a
@@ -52,14 +55,16 @@ def load_bytes(filename: str, data: bytes) -> str:
 
 
 def load_docs(docs_dir: str = "docs") -> list[tuple[str, str]]:
-    """
-    Returns list of (filename, cleaned_text)
+    """Load every supported file in docs_dir as (filename, cleaned_text) pairs.
+
+    Unsupported extensions are skipped silently -- docs_dir is a curated
+    corpus directory, not arbitrary user input.
     """
     root = Path(docs_dir)
     out = []
     for p in root.glob("*"):
         if p.suffix.lower() in {".md", ".txt"}:
-            t = load_markdown(p)
+            t = load_text(p)
         elif p.suffix.lower() == ".pdf":
             t = load_pdf(p)
         else:

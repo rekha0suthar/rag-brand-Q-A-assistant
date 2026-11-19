@@ -1,9 +1,13 @@
-# ingest.py
+"""Build the FAISS index in `index_dir` from the files in ./docs.
+
+Run as a script after changing docs/: `python ingest.py`. The chunking step
+(chunk_texts) is also imported by the Streamlit upload mode so both index
+builds use identical splitter settings.
+"""
+
 from pathlib import Path
 
-import yaml
-from dotenv import load_dotenv
-
+from utils.config import embedding_model_name, load_config
 from utils.io import load_docs
 
 # Splitters: support both old/new LangChain
@@ -13,10 +17,6 @@ except ImportError:
     from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from langchain_community.vectorstores import FAISS
-
-
-def get_cfg():
-    return yaml.safe_load(Path("config.yaml").read_text())
 
 
 def chunk_texts(docs, chunk_size=800, chunk_overlap=150) -> list[dict]:
@@ -42,7 +42,8 @@ def chunk_texts(docs, chunk_size=800, chunk_overlap=150) -> list[dict]:
 
 
 def build_text_chunks(docs_dir="docs") -> list[dict]:
-    cfg = get_cfg()
+    """Load every readable file in docs_dir and chunk it with config.yaml settings."""
+    cfg = load_config()
     docs = load_docs(docs_dir)
     if not docs:
         raise RuntimeError(
@@ -57,15 +58,9 @@ def build_text_chunks(docs_dir="docs") -> list[dict]:
     return chunks
 
 
-def _hf_embeddings(model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
-    from langchain_huggingface import HuggingFaceEmbeddings
-
-    return HuggingFaceEmbeddings(model_name=model_name)
-
-
 def build_index():
-    load_dotenv()
-    cfg = get_cfg()
+    """Chunk ./docs, embed locally and write the FAISS index to index_dir."""
+    cfg = load_config()
     index_dir = cfg.get("index_dir", "faiss_index")
     Path(index_dir).mkdir(parents=True, exist_ok=True)
 
@@ -75,9 +70,12 @@ def build_index():
 
     # Must match the embedding model chain.py loads at query time -- using a
     # different one here would silently change the index's vector dimension
-    # and break (or corrupt) retrieval.
-    print("[ingest] Using local HF embeddings: sentence-transformers/all-MiniLM-L6-v2")
-    embeddings = _hf_embeddings("sentence-transformers/all-MiniLM-L6-v2")
+    # and break (or corrupt) retrieval. Both sides read cfg["embedding_model"].
+    from langchain_huggingface import HuggingFaceEmbeddings
+
+    model_name = embedding_model_name(cfg)
+    print(f"[ingest] Using local HF embeddings: {model_name}")
+    embeddings = HuggingFaceEmbeddings(model_name=model_name)
 
     print("[ingest] Building FAISS index…")
     vs = FAISS.from_texts(texts, embeddings, metadatas=metas)
