@@ -1,4 +1,5 @@
 # api/main.py
+from contextlib import asynccontextmanager
 from pathlib import Path
 import sys, traceback
 from fastapi import FastAPI, HTTPException
@@ -10,16 +11,14 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-app = FastAPI(title="RAG Marketing Assistant", version="1.0")
-
 ask = None                  # will hold the callable returned by load_chain()
 ask_init_error = None       # capture init error text for debugging
 
 class Query(BaseModel):
     question: str
 
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global ask, ask_init_error
     try:
         # Lazy import here so we see the REAL traceback if chain.py explodes
@@ -32,6 +31,9 @@ def startup():
         ask_init_error = "".join(traceback.format_exception(type(e), e, e.__traceback__))
         # Don’t raise, so /healthz and /docs still work; /ask will return 503
         print("[api] load_chain FAILED\n" + ask_init_error)
+    yield
+
+app = FastAPI(title="RAG Marketing Assistant", version="1.0", lifespan=lifespan)
 
 @app.get("/", response_class=HTMLResponse)
 def root():
