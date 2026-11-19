@@ -93,7 +93,7 @@ def load_chain():
         # the calibrated threshold. If nothing is close enough, refuse WITHOUT
         # calling the LLM and WITHOUT citing sources -- a refusal that cites
         # documents it didn't use would be misleading.
-        kept = filter_by_score(results, cfg.get("score_threshold", 1.4))
+        kept = filter_by_score(results, cfg.get("score_threshold", 1.25))
         if not kept:
             return pack_result(cfg.get("refusal_text", "Not enough info in the docs."), [], time.time() - t0)
         docs = [d for d, _ in kept]
