@@ -1,4 +1,4 @@
-{"q": "List 3 words our brand voice avoids.", "type": "keywords", "any_of": ["best", "no.1", "no. 1", "guaranteed"]}
+{"q": "List 3 words our brand voice avoids.", "type": "keywords", "any_of": ["best", "no.1", "no. 1", "guaranteed", "cheap", "luxury", "limited stock"]}
 {"q": "Give a compliant disclaimer we must include for discounts.", "type": "contains", "text": "limited-time offer"}
 {"q": "What was our 2023 revenue?", "type": "refuse"}
 {"q": "Write one playful headline for Diwali 2024.", "type": "keywords", "any_of": ["light", "festive", "gift", "sparkle", "joy"]}

@@ -1,17 +1,18 @@
 # Eval report
 
-> **Stale — predates the score-threshold gate; re-run pending.** Refusal rows
-> below still show sources; since the gate landed, refusals return an empty
-> sources list and the checker requires it.
-
-**Score:** 5/5  
-**Avg latency:** 0.364s  
-**Max latency:** 0.535s
+**Score:** 10/10  
+**Avg latency:** 0.562s  
+**Max latency:** 0.865s
 
 | # | Question | Result | Latency | Sources |
 |---|----------|--------|---------|---------|
-| 1 | List 3 words our brand voice avoids. | ✅ PASS | 0.535s | brand_guidelines.md, campaign_diwali_2024.md |
-| 2 | Give a compliant disclaimer we must include for discounts. | ✅ PASS | 0.256s | brand_guidelines.md, campaign_diwali_2024.md |
-| 3 | What was our 2023 revenue? | ✅ PASS | 0.429s | brand_guidelines.md, campaign_diwali_2024.md |
-| 4 | Write one playful headline for Diwali 2024. | ✅ PASS | 0.303s | brand_guidelines.md, campaign_diwali_2024.md |
-| 5 | Are health claims allowed in our marketing? | ✅ PASS | 0.299s | brand_guidelines.md, campaign_diwali_2024.md |
+| 1 | List 3 words our brand voice avoids. | ✅ PASS | 0.856s | brand_guidelines.md, tone_of_voice_faq.md |
+| 2 | Give a compliant disclaimer we must include for discounts. | ✅ PASS | 0.865s | compliance.md, product_messaging.md, tone_of_voice_faq.md |
+| 3 | What was our 2023 revenue? | ✅ PASS | 0.01s | — |
+| 4 | Write one playful headline for Diwali 2024. | ✅ PASS | 0.801s | campaign_diwali_2024.md, campaign_summer_2025.md, tone_of_voice_faq.md |
+| 5 | Are health claims allowed in our marketing? | ✅ PASS | 0.824s | compliance.md |
+| 6 | What discount ran in the Summer 2025 campaign? | ✅ PASS | 0.716s | campaign_summer_2025.md |
+| 7 | What label must influencer and paid partnership posts carry? | ✅ PASS | 0.783s | compliance.md |
+| 8 | How many emoji are allowed in a social caption? | ✅ PASS | 0.747s | tone_of_voice_faq.md |
+| 9 | What is our refund policy for damaged items? | ✅ PASS | 0.01s | — |
+| 10 | Who won the 1998 FIFA World Cup? | ✅ PASS | 0.008s | — |
