@@ -1,0 +1,34 @@
+{"q": "What are our approved brand tone example lines?", "expected": ["brand_guidelines.md", "brand_voice_examples.md"]}
+{"q": "Which keywords resonated in the Diwali 2024 campaign?", "expected": ["campaign_diwali_2024.md", "campaign_diwali_2025_brief.md", "tone_of_voice_faq.md"]}
+{"q": "What offer structure ran in Diwali 2024?", "expected": ["campaign_diwali_2024.md", "campaign_diwali_2025_brief.md", "campaign_summer_2025.md"]}
+{"q": "Which email subject line had the best open rate in Summer 2025?", "expected": ["campaign_summer_2025.md", "brand_voice_examples.md"]}
+{"q": "What discount ran in the Summer 2025 campaign?", "expected": ["campaign_summer_2025.md"]}
+{"q": "What must sweepstakes and giveaways state?", "expected": ["compliance.md", "internal_faq.md"]}
+{"q": "What can was/now price comparisons reference?", "expected": ["compliance.md", "pricing_and_discount_policy.md"]}
+{"q": "What label must influencer and paid partnership posts carry?", "expected": ["compliance.md"]}
+{"q": "What are the three pillars of our message house?", "expected": ["product_messaging.md"]}
+{"q": "Is sarcasm allowed in our copy?", "expected": ["tone_of_voice_faq.md"]}
+{"q": "Can we write social captions in Hinglish?", "expected": ["tone_of_voice_faq.md", "campaign_diwali_2025_brief.md", "campaign_monsoon_2025.md"]}
+{"q": "What size is each diya in the Glow Diya Set?", "expected": ["product_glow_diya_set.md"]}
+{"q": "How much does the Glow Diya Set cost?", "expected": ["product_glow_diya_set.md"]}
+{"q": "What colourways do the Breeze cushion covers come in?", "expected": ["product_breeze_cushion_covers.md"]}
+{"q": "How should the cushion covers be washed?", "expected": ["product_breeze_cushion_covers.md"]}
+{"q": "How long does each Hearth candle burn?", "expected": ["product_hearth_candle_trio.md"]}
+{"q": "What scents come in the Hearth Candle Trio?", "expected": ["product_hearth_candle_trio.md"]}
+{"q": "What are the three price bands and their ranges?", "expected": ["pricing_and_discount_policy.md", "website_release_notes.md"]}
+{"q": "What does shipping cost below the free-shipping threshold?", "expected": ["pricing_and_discount_policy.md", "returns_and_support_policy.md"]}
+{"q": "What is the maximum discount we can offer without an exception?", "expected": ["pricing_and_discount_policy.md", "internal_faq.md"]}
+{"q": "What is the theme of the Monsoon 2025 campaign?", "expected": ["campaign_monsoon_2025.md"]}
+{"q": "What offer runs during the Monsoon 2025 flight?", "expected": ["campaign_monsoon_2025.md"]}
+{"q": "What discount runs for Diwali 2025?", "expected": ["campaign_diwali_2025_brief.md"]}
+{"q": "How many days do customers have to return a product?", "expected": ["returns_and_support_policy.md"]}
+{"q": "When are shipping fees refunded on a return?", "expected": ["returns_and_support_policy.md"]}
+{"q": "How do customers report an item that arrived damaged?", "expected": ["returns_and_support_policy.md"]}
+{"q": "What kind of wax are the candles made of?", "expected": ["materials_and_safety_notes.md", "product_hearth_candle_trio.md"]}
+{"q": "Is the cotton in our cushion covers organic?", "expected": ["materials_and_safety_notes.md", "product_breeze_cushion_covers.md"]}
+{"q": "Is the paint on the terracotta diyas lead-free?", "expected": ["materials_and_safety_notes.md", "product_glow_diya_set.md"]}
+{"q": "Show how to rewrite a line that uses banned superlatives.", "expected": ["brand_voice_examples.md"]}
+{"q": "What should I do if a customer DMs the marketing account about a return?", "expected": ["internal_faq.md"]}
+{"q": "How long does compliance review take?", "expected": ["compliance.md", "internal_faq.md"]}
+{"q": "When was the handwritten-style gift note added to checkout?", "expected": ["website_release_notes.md"]}
+{"q": "What is the Your Corners gallery?", "expected": ["website_release_notes.md"]}

@@ -18,11 +18,19 @@ jobs:
       # chain.py imports langchain-huggingface at module level, which needs
       # sentence-transformers (and therefore torch), so install the full
       # pinned set -- the CPU wheel index keeps torch small and GPU-free.
-      # No API keys needed: tests never call an LLM or load the FAISS index.
+      # No API keys needed: the suite never calls an LLM. The AppTest smoke
+      # tests and the retrieval eval DO load the FAISS index + MiniLM, so the
+      # HF model directory is cached to keep runs fast.
       - name: Install dependencies
         run: |
           pip install -r requirements.txt -r requirements-dev.txt \
             --extra-index-url https://download.pytorch.org/whl/cpu
+
+      - name: Cache embedding model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-minilm-${{ hashFiles('config.yaml') }}
 
       - name: Lint
         run: |
@@ -31,6 +39,11 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+      # Retriever-only quality gate: hit@3 and MRR on the labeled set.
+      # Local embeddings, no LLM, exits non-zero when hit@3 < 0.9.
+      - name: Retrieval eval
+        run: python eval_samples/run_retrieval_eval.py
 
   # Promote main -> release only when the test job is green. Streamlit
   # Community Cloud tracks the release branch, so broken code never deploys.
