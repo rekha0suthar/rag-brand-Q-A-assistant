@@ -3,9 +3,9 @@
 {"q": "What was our 2023 revenue?", "type": "refuse"}
 {"q": "Write one playful headline for Diwali 2024.", "type": "keywords", "any_of": ["light", "festive", "gift", "sparkle", "joy", "roshni", "diya"]}
 {"q": "Are health claims allowed in our marketing?", "type": "keywords", "any_of": ["prohibited", "not allowed", "banned", "no health", "never"]}
-{"q": "What discount ran in the Summer 2025 campaign?", "type": "keywords", "any_of": ["15%", "flat 15", "1,499", "1499"]}
+{"q": "Which email subject line had the best open rate in Summer 2025?", "type": "keywords", "any_of": ["balcony", "cushions"]}
 {"q": "What label must influencer and paid partnership posts carry?", "type": "keywords", "any_of": ["#ad", "paid partnership"]}
-{"q": "How many emoji are allowed in a social caption?", "type": "keywords", "any_of": ["one per", "one emoji", "maximum of one", "at most one", "one, maximum"]}
+{"q": "How many emoji are allowed in a social caption?", "type": "keywords", "any_of": ["one per", "one emoji", "maximum of one", "at most one", "one, maximum", "one.", "only one", "just one"]}
 {"q": "What happens if my order arrives damaged?", "type": "keywords", "any_of": ["replace", "48 hours", "photo", "free of charge"]}
 {"q": "How many employees does the company have?", "type": "refuse"}
 {"q": "How much does the Glow Diya Set cost?", "type": "keywords", "any_of": ["499"]}

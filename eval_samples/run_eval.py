@@ -6,6 +6,7 @@ Requires a working LLM provider (Ollama running, or LLM_PROVIDER=groq + key).
 
 import json
 import sys
+import time
 from pathlib import Path
 from statistics import mean
 
@@ -15,6 +16,22 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from chain import load_chain
+from utils.errors import QuotaExceededError
+
+# Free-tier providers rate-limit bursts; 15 sequential questions can trip the
+# per-minute cap. Back off and retry instead of losing the whole run.
+BACKOFFS = (20, 60)  # seconds; then give up and let the error propagate
+
+
+def ask_with_backoff(ask, question):
+    for wait in BACKOFFS:
+        try:
+            return ask(question)
+        except QuotaExceededError:
+            print(f"  (rate-limited, retrying in {wait}s...)")
+            time.sleep(wait)
+    return ask(question)
+
 
 EVAL_FILE = Path(__file__).resolve().parent / "qa.jsonl"
 REPORT_FILE = Path(__file__).resolve().parent / "report.md"
@@ -55,7 +72,7 @@ def run():
 
     rows = []
     for item in items:
-        out = ask(item["q"])
+        out = ask_with_backoff(ask, item["q"])
         passed = check(item, out["answer"], out["sources"])
         rows.append(
             {
