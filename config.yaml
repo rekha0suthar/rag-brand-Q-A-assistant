@@ -12,12 +12,17 @@ embedding_model: sentence-transformers/all-MiniLM-L6-v2
 # safety
 # FAISS similarity scores here are L2 distances (lower = closer). Chunks
 # scoring above this are dropped; if none remain, the chain refuses without
-# calling the LLM. Calibrated against the 6-doc index: on-corpus queries
-# scored 0.85-1.12 (best chunk), unanswerable/off-topic queries 1.33-1.98.
-score_threshold: 1.25
+# calling the LLM. Calibrated against the 17-doc index via scripts/calibrate.py
+# (2026-11): 30 on-topic questions' best chunks scored 0.594-1.206 (mean 0.870);
+# 15 off-topic/absent-fact questions scored 1.339-1.853 (mean 1.63), except one
+# near-domain probe ("marketing budget", 1.066) that lands below any usable
+# threshold -- that class is caught by the prompt-level refusal instead.
+# 1.27 is the midpoint of the clean gap (worst on-topic 1.206, best clearly
+# off-topic 1.339). Re-run scripts/calibrate.py after any corpus change.
+score_threshold: 1.27
 refusal_text: "Not enough info in the docs."
 
-# Session ("Your documents") gate. The 1.25 threshold above is calibrated to
+# Session ("Your documents") gate. The demo threshold above is calibrated to
 # the demo corpus; natural questions over arbitrary uploads score higher.
 # Measured on synthetic uploads (resume + warranty policy): answerable
 # questions' best chunks 1.08-1.59, off-topic best chunks 1.66-2.11, so 1.6

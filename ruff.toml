@@ -13,5 +13,6 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 "app.py" = ["E402"]
 # api/main.py: sys.path bootstrap must precede project imports.
 "api/main.py" = ["E402"]
-# eval harness: sys.path bootstrap before importing chain.
+# eval harness + calibration: sys.path bootstrap before project imports.
 "eval_samples/run_eval.py" = ["E402"]
+"scripts/calibrate.py" = ["E402"]

@@ -114,7 +114,7 @@ def make_asker(vectorstore, cfg, llm, score_threshold=None, score_margin=None):
         demo corpus the default threshold was calibrated on.
       score_margin -- enables the relative-margin rule in filter_by_score.
     """
-    threshold = score_threshold if score_threshold is not None else cfg.get("score_threshold", 1.25)
+    threshold = score_threshold if score_threshold is not None else cfg.get("score_threshold", 1.27)
     refusal_text = cfg.get("refusal_text", "Not enough info in the docs.")
 
     def ask(question: str):
