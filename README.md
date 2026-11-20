@@ -10,7 +10,7 @@ A **brand-safe Retrieval-Augmented Generation (RAG)** assistant that answers que
 * **Generation:** Local **Ollama** (e.g., `llama3`) or hosted **Groq** via LangChain
 * **UX / API:** Two-mode Streamlit app (`app.py`) — brand demo + upload-your-own-documents, FastAPI service (`api/main.py`), CLI (`cli.py`)
 * **Safety:** Deterministic refusal below the retrieval threshold + “use only context” prompt
-* **Ops:** Config-driven (`config.yaml`), Dockerfile, CI (ruff lint + 69 tests, gated deploys), simple eval harness
+* **Ops:** Config-driven (`config.yaml`), Dockerfile, CI (ruff lint + 85 tests + retrieval-metric gate, gated deploys), two-layer eval harness (retriever hit@3/MRR + end-to-end golden set)
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the data-flow diagram, the design
 decisions behind the refusal gate, and the known tradeoffs.
@@ -27,7 +27,7 @@ decisions behind the refusal gate, and the known tradeoffs.
 * **Strict refusal**: returns `"Not enough info in the docs."` with an **empty sources list** when no chunk clears the retrieval score threshold — the LLM is never called
 * **Local-first inference** with **Ollama** (no API key), **cloud-ready** with **Groq** (`LLM_PROVIDER=groq`)
 * **Two-mode Streamlit app**:
-  * **Brand knowledge demo** — chat over the committed 6-doc index, with example-question chips (including an off-limits one that shows the refusal) and a knowledge-base overview
+  * **Brand knowledge demo** — chat over the committed 17-doc index, with example-question chips (including an off-limits one that shows the refusal) and a knowledge-base overview
   * **Your documents** — upload `.pdf/.md/.txt` (≤50 files, ≤10 MB total); they are chunked with the same splitter, embedded with the same shared model, and indexed **in memory for the session only** (never written to disk). Uploads use a session-calibrated refusal gate (see below); files with little readable text (scanned/image PDFs) are skipped with a visible warning instead of being indexed as garbage.
 * **FastAPI endpoint** (`POST /ask`) for programmatic use (and Swagger at `/docs`)
 * **Clean failure modes**: Groq rate/quota errors surface as a friendly "free AI
@@ -78,18 +78,23 @@ rag-brand-Q-A-assistant/
 │  ├─ io.py               # Load/clean .md/.txt/.pdf
 │  └─ logger.py           # ask() result packaging
 ├─ config.yaml            # Chunking/k/models/safety knobs
-├─ docs/                  # Marketing docs (brand, campaigns, compliance)
-│  ├─ brand_guidelines.md
-│  ├─ campaign_diwali_2024.md
-│  ├─ campaign_summer_2025.md
-│  ├─ compliance.md
-│  ├─ product_messaging.md
-│  └─ tone_of_voice_faq.md
+├─ docs/                  # 17 marketing docs for one fictional home-decor
+│  │                      # brand: guidelines, tone FAQ + voice examples,
+│  │                      # 4 campaign docs (Diwali 24/25, Summer/Monsoon 25),
+│  │                      # 3 product spec sheets, pricing/discount policy,
+│  │                      # returns & support, materials/safety & compliance,
+│  │                      # internal FAQ, website release notes
+│  └─ ...                 # (deliberately ABSENT: revenue, headcount, CEO --
+│                         #  the refusal demo depends on these staying absent)
 ├─ faiss_index/           # Committed vector index (rebuild with ingest.py)
 ├─ eval_samples/
-│  ├─ qa.jsonl            # Golden set (answers, keywords, refusals)
-│  ├─ run_eval.py         # Evaluation runner -- writes eval_samples/report.md
-│  └─ report.md           # Last committed eval report
+│  ├─ qa.jsonl            # End-to-end golden set (answers, keywords, refusals)
+│  ├─ run_eval.py         # End-to-end runner -- writes eval_samples/report.md
+│  ├─ retrieval.jsonl     # 34 labeled question -> expected-source pairs
+│  ├─ run_retrieval_eval.py  # Retriever-only hit@3 / MRR gate (no LLM, in CI)
+│  └─ report.md           # Last committed end-to-end eval report
+├─ scripts/
+│  └─ calibrate.py        # Measures on/off-topic L2 distributions for the gate
 ├─ tests/                 # Unit tests (pytest) -- no models or API keys needed
 ├─ .github/workflows/ci.yml   # lint + tests, then main -> release promotion
 ├─ ARCHITECTURE.md        # Data flow, design decisions, tradeoffs
@@ -153,7 +158,7 @@ embedding_model: sentence-transformers/all-MiniLM-L6-v2  # rebuild index if chan
 # safety
 # L2 distance cutoff for retrieved chunks (lower = closer). Chunks above it
 # are dropped; if none remain, the chain refuses without calling the LLM.
-score_threshold: 1.25
+score_threshold: 1.27
 refusal_text: "Not enough info in the docs."
 
 # "Your documents" (session upload) gate -- see the calibration note below
@@ -163,7 +168,7 @@ session_score_margin: 0.2
 # generation
 provider: ollama            # or "groq"; LLM_PROVIDER env var overrides
 ollama_model: llama3
-groq_model: openai/gpt-oss-120b
+groq_model: openai/gpt-oss-20b
 temperature: 0.0
 ```
 
@@ -192,7 +197,8 @@ CUDA build. Drop it if you want GPU torch.)
 
 ```bash
 python ingest.py
-# Expected: [ingest] ✅ Indexed N chunks into faiss_index
+# Expected: [ingest] OK - indexed N chunks into faiss_index
+# After changing docs/, re-measure the refusal gate: python scripts/calibrate.py
 ```
 
 4a) **Run the demo (Streamlit)**
@@ -208,8 +214,11 @@ session-only in-memory index — same retrieval, same prompt, via the shared
 `make_asker()` code path in `chain.py`.
 
 An honest note on the refusal gate: an L2-distance threshold is a **per-corpus
-calibration**, not a universal constant. The demo threshold (1.25) was tuned on
-the 6 committed brand docs; on arbitrary uploads, natural questions score
+calibration**, not a universal constant. The demo threshold (1.27) was measured
+on the 17 committed brand docs with `scripts/calibrate.py` (30 on-topic
+questions: best chunks 0.594–1.206; 15 off-topic/absent-fact questions:
+1.339–1.853, one near-domain outlier at 1.066 handled by the context-only
+prompt). On arbitrary uploads, natural questions score
 systematically higher distances (measured on a synthetic resume + warranty
 policy: best chunks for answerable questions landed at 1.08–1.59, off-topic
 questions at 1.66–2.11), so the demo gate wrongly refused most legitimate
@@ -301,25 +310,39 @@ reaches the deployed app. The first CI run on `main` creates the remote
 
 ## 🧪 Evaluation Harness
 
-`eval_samples/qa.jsonl` holds a small golden set -- each item is either a
-`refuse` case (the doc genuinely doesn't have the answer), a `contains` case
-(the answer must include an exact phrase from the docs, like a disclaimer),
-or a `keywords` case (the answer must include at least one of a few valid
-phrasings). Run it against the live chain:
+Two independent layers, split so retrieval quality is measured separately from
+generation quality:
+
+| Metric | Value | How it's measured |
+|---|---|---|
+| Retrieval hit@3 | **0.941** | 34 labeled question → expected-source pairs (every doc covered); hit = an expected doc in the top 3 chunks |
+| Retrieval MRR | **0.953** | reciprocal rank of the first expected doc (depth 10) |
+| End-to-end golden set | **15/15** | live chain (Groq, `openai/gpt-oss-20b`), string-level checks |
+
+**Retriever-only** (no LLM, local embeddings, runs in CI and fails the build
+when hit@3 drops below 0.9):
+
+```bash
+python eval_samples/run_retrieval_eval.py
+```
+
+**End-to-end** -- `eval_samples/qa.jsonl` holds 15 cases: `refuse` cases (3 of
+them -- facts deliberately absent from the corpus, like 2023 revenue and
+headcount, where the gate must refuse without citing anything), `contains`
+cases (the answer must include an exact phrase from the docs, like a
+disclaimer), and `keywords` cases (the answer must include at least one of a
+few valid phrasings). Run it against the live chain:
 
 ```bash
 python eval_samples/run_eval.py
 ```
 
 It prints a pass/fail + latency per question and writes
-[`eval_samples/report.md`](eval_samples/report.md). Last committed run — all
-10 cases (Groq, `openai/gpt-oss-120b`):
+[`eval_samples/report.md`](eval_samples/report.md).
 
-**Score:** 10/10 &nbsp;|&nbsp; **Avg latency:** 0.65s &nbsp;|&nbsp; **Max latency:** 1.70s
-
-The set covers grounded answers (disclaimers, campaign facts, policy
-details) and refusals (2023 revenue, 1998 World Cup — not in the docs, so the
-gate must refuse without citing anything).
+The demo-gate threshold these evals exercise is re-measured with
+`scripts/calibrate.py` whenever the corpus changes -- measured distributions
+are recorded in `config.yaml` and ARCHITECTURE.md.
 
 ---
 
