@@ -1,10 +1,15 @@
 {"q": "List 3 words our brand voice avoids.", "type": "keywords", "any_of": ["best", "no.1", "no. 1", "guaranteed", "cheap", "luxury", "limited stock"]}
 {"q": "Give a compliant disclaimer we must include for discounts.", "type": "contains", "text": "limited-time offer"}
 {"q": "What was our 2023 revenue?", "type": "refuse"}
-{"q": "Write one playful headline for Diwali 2024.", "type": "keywords", "any_of": ["light", "festive", "gift", "sparkle", "joy"]}
+{"q": "Write one playful headline for Diwali 2024.", "type": "keywords", "any_of": ["light", "festive", "gift", "sparkle", "joy", "roshni", "diya"]}
 {"q": "Are health claims allowed in our marketing?", "type": "keywords", "any_of": ["prohibited", "not allowed", "banned", "no health", "never"]}
 {"q": "What discount ran in the Summer 2025 campaign?", "type": "keywords", "any_of": ["15%", "flat 15", "1,499", "1499"]}
 {"q": "What label must influencer and paid partnership posts carry?", "type": "keywords", "any_of": ["#ad", "paid partnership"]}
 {"q": "How many emoji are allowed in a social caption?", "type": "keywords", "any_of": ["one per", "one emoji", "maximum of one", "at most one", "one, maximum"]}
-{"q": "What is our refund policy for damaged items?", "type": "refuse"}
+{"q": "What happens if my order arrives damaged?", "type": "keywords", "any_of": ["replace", "48 hours", "photo", "free of charge"]}
+{"q": "How many employees does the company have?", "type": "refuse"}
+{"q": "How much does the Glow Diya Set cost?", "type": "keywords", "any_of": ["499"]}
+{"q": "How many days do customers have to return a product?", "type": "keywords", "any_of": ["10 days", "10-day", "ten days", "10 day"]}
+{"q": "What offer runs for the Diwali 2025 campaign?", "type": "keywords", "any_of": ["10%", "999"]}
+{"q": "Can we call our products eco-friendly in copy?", "type": "keywords", "any_of": ["certification", "certified", "banned", "prohibited", "not allowed", "cannot", "can't"]}
 {"q": "Who won the 1998 FIFA World Cup?", "type": "refuse"}
