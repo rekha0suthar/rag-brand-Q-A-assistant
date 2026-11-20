@@ -80,7 +80,8 @@ def build_index():
     print("[ingest] Building FAISS index…")
     vs = FAISS.from_texts(texts, embeddings, metadatas=metas)
     vs.save_local(index_dir)
-    print(f"[ingest] ✅ Indexed {len(texts)} chunks into {index_dir}")
+    # Plain ASCII: Windows consoles default to cp1252 and crash on emoji.
+    print(f"[ingest] OK - indexed {len(texts)} chunks into {index_dir}")
 
 
 if __name__ == "__main__":

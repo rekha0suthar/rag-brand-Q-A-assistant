@@ -1,6 +1,6 @@
 """Two-mode Streamlit UI over the shared make_asker() pipeline.
 
-Mode 1 "Brand knowledge demo": committed faiss_index + the 6 docs/ files.
+Mode 1 "Brand knowledge demo": committed faiss_index + the committed docs/ corpus.
 Mode 2 "Your documents": uploads -> in-memory FAISS in session_state
                          (never written to disk).
 
